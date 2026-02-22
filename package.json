@@ -1,0 +1,39 @@
+{
+  "name": "@multimail/mcp-server",
+  "version": "0.1.1",
+  "description": "MCP server for MultiMail — email for AI agents",
+  "type": "module",
+  "bin": {
+    "multimail-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "keywords": ["mcp", "email", "ai-agents", "multimail", "model-context-protocol"],
+  "license": "MIT",
+  "author": {
+    "name": "MultiMail",
+    "email": "dev@multimail.dev",
+    "url": "https://multimail.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/multimail-dev/mcp-server.git"
+  },
+  "homepage": "https://multimail.dev",
+  "bugs": {
+    "email": "dev@multimail.dev"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3"
+  }
+}
