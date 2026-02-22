@@ -1,6 +1,6 @@
 {
   "name": "@multimail/mcp-server",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "MCP server for MultiMail — email for AI agents",
   "type": "module",
   "bin": {
@@ -38,7 +38,7 @@
     "type": "git",
     "url": "https://github.com/multimail-dev/mcp-server.git"
   },
-  "mcpName": "io.github.H179922/multimail-mcp-server",
+  "mcpName": "dev.multimail/mcp-server",
   "homepage": "https://multimail.dev",
   "bugs": {
     "email": "dev@multimail.dev"

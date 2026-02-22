@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.H179922/multimail-mcp-server",
+  "name": "dev.multimail/mcp-server",
   "description": "Email for AI agents. Send and receive as markdown with human oversight.",
   "repository": {
     "url": "https://github.com/multimail-dev/mcp-server",
     "source": "github"
   },
-  "version": "0.1.4",
+  "version": "0.1.5",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@multimail/mcp-server",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "transport": {
         "type": "stdio"
       },
