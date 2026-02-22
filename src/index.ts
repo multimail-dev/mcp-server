@@ -83,7 +83,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.1.1",
+  version: "0.1.3",
 });
 
 // Tool 1: list_mailboxes
