@@ -83,7 +83,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.1.6",
+  version: "0.1.7",
 });
 
 // Tool 1: list_mailboxes
@@ -176,6 +176,17 @@ server.tool(
   },
   async ({ address }) => {
     const data = await publicFetch(`/.well-known/agent/${encodeURIComponent(address)}`);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 7: resend_confirmation
+server.tool(
+  "resend_confirmation",
+  "Resend the operator anti-spam confirmation email. Use this if the account is stuck in 'pending_operator_confirmation' status because the original confirmation email was lost or filtered. Rate limited to 1 request per 5 minutes. Only works for unconfirmed accounts.",
+  {},
+  async () => {
+    const data = await apiCall("POST", "/v1/account/resend-confirmation");
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
   }
 );
