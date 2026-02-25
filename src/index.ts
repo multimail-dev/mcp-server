@@ -83,7 +83,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.1.7",
+  version: "0.1.9",
 });
 
 // Tool 1: list_mailboxes
@@ -170,9 +170,9 @@ server.tool(
 // Tool 6: search_identity
 server.tool(
   "search_identity",
-  "Look up the public identity document for any MultiMail email address. Returns the agent's operator, oversight mode, capabilities, and whether the operator is verified. No authentication required. Use this to verify another agent's identity before sending sensitive information.",
+  "Look up the public identity document for any MultiMail address. Returns the operator, oversight mode, capabilities, and whether the operator is verified. No authentication required. Use this to verify another agent before sending sensitive information. Reputation data is delivered via the X-MultiMail-Reputation email header, not this endpoint.",
   {
-    address: z.string().email().describe("The email address to look up (e.g. sandy@multimail.dev)"),
+    address: z.string().email().describe("The MultiMail address to look up"),
   },
   async ({ address }) => {
     const data = await publicFetch(`/.well-known/agent/${encodeURIComponent(address)}`);
@@ -183,10 +183,31 @@ server.tool(
 // Tool 7: resend_confirmation
 server.tool(
   "resend_confirmation",
-  "Resend the operator anti-spam confirmation email. Use this if the account is stuck in 'pending_operator_confirmation' status because the original confirmation email was lost or filtered. Rate limited to 1 request per 5 minutes. Only works for unconfirmed accounts.",
+  "Resend the activation email with a new code. Use this if the account is stuck in 'pending_operator_confirmation' status because the original email was lost or filtered. The operator must enter the code at the activation page or via the activate_account tool to activate the account. Rate limited to 1 request per 5 minutes. Only works for unconfirmed accounts.",
   {},
   async () => {
     const data = await apiCall("POST", "/v1/account/resend-confirmation");
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 8: activate_account
+server.tool(
+  "activate_account",
+  "Activate a MultiMail account using the activation code from the confirmation email. The operator receives the code via email and can provide it to the agent. Accepts the code with or without dashes (e.g. 'SKP-7D2-4V8' or 'SKP7D24V8'). Rate limited to 5 attempts per hour.",
+  {
+    code: z.string().describe("The activation code from the confirmation email (e.g. SKP-7D2-4V8)"),
+  },
+  async ({ code }) => {
+    const res = await fetch(`${BASE_URL}/v1/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const data = await parseResponse(res);
+    if (!res.ok) {
+      throw new Error(`Activation failed: ${data.error || JSON.stringify(data)}`);
+    }
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
   }
 );

@@ -10,6 +10,8 @@ npx @multimail/mcp-server
 
 Requires `MULTIMAIL_API_KEY` environment variable. Get one at [multimail.dev](https://multimail.dev).
 
+By using MultiMail you agree to the [Terms of Service](https://multimail.dev/terms) and [Acceptable Use Policy](https://multimail.dev/acceptable-use).
+
 ## Setup
 
 Any MCP-compatible client uses the same config. Add MultiMail to your client's MCP configuration:
@@ -59,7 +61,9 @@ Any MCP-compatible client uses the same config. Add MultiMail to your client's M
 | `check_inbox` | List emails (filterable by unread/read/archived) |
 | `read_email` | Get the full content of a specific email |
 | `reply_email` | Reply to an email in its existing thread |
-| `search_identity` | Look up the public identity of any MultiMail address |
+| `search_identity` | Look up the public identity of any MultiMail address (operator, oversight, verification status) |
+| `resend_confirmation` | Resend the activation email with a new code |
+| `activate_account` | Activate an account using the code from the confirmation email |
 
 ## How it works
 
