@@ -83,7 +83,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.1.9",
+  version: "0.1.10",
 });
 
 // Tool 1: list_mailboxes
@@ -106,12 +106,14 @@ server.tool(
     subject: z.string().describe("Email subject line"),
     markdown: z.string().describe("Email body in markdown format"),
     cc: z.array(z.string().email()).optional().describe("CC email addresses"),
+    bcc: z.array(z.string().email()).optional().describe("BCC email addresses"),
     mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
   },
-  async ({ to, subject, markdown, cc, mailbox_id }) => {
+  async ({ to, subject, markdown, cc, bcc, mailbox_id }) => {
     const id = getMailboxId(mailbox_id);
     const body: Record<string, unknown> = { to, subject, markdown };
     if (cc?.length) body.cc = cc;
+    if (bcc?.length) body.bcc = bcc;
     const data = await apiCall("POST", `/v1/mailboxes/${encodeURIComponent(id)}/send`, body);
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
   }
@@ -156,31 +158,20 @@ server.tool(
     email_id: z.string().describe("The email ID to reply to"),
     markdown: z.string().describe("Reply body in markdown format"),
     cc: z.array(z.string().email()).optional().describe("CC email addresses"),
+    bcc: z.array(z.string().email()).optional().describe("BCC email addresses"),
     mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
   },
-  async ({ email_id, markdown, cc, mailbox_id }) => {
+  async ({ email_id, markdown, cc, bcc, mailbox_id }) => {
     const id = getMailboxId(mailbox_id);
     const body: Record<string, unknown> = { markdown };
     if (cc?.length) body.cc = cc;
+    if (bcc?.length) body.bcc = bcc;
     const data = await apiCall("POST", `/v1/mailboxes/${encodeURIComponent(id)}/reply/${encodeURIComponent(email_id)}`, body);
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
   }
 );
 
-// Tool 6: search_identity
-server.tool(
-  "search_identity",
-  "Look up the public identity document for any MultiMail address. Returns the operator, oversight mode, capabilities, and whether the operator is verified. No authentication required. Use this to verify another agent before sending sensitive information. Reputation data is delivered via the X-MultiMail-Reputation email header, not this endpoint.",
-  {
-    address: z.string().email().describe("The MultiMail address to look up"),
-  },
-  async ({ address }) => {
-    const data = await publicFetch(`/.well-known/agent/${encodeURIComponent(address)}`);
-    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
-  }
-);
-
-// Tool 7: resend_confirmation
+// Tool 6: resend_confirmation (search_identity removed — identity now delivered via signed X-MultiMail-Identity email header)
 server.tool(
   "resend_confirmation",
   "Resend the activation email with a new code. Use this if the account is stuck in 'pending_operator_confirmation' status because the original email was lost or filtered. The operator must enter the code at the activation page or via the activate_account tool to activate the account. Rate limited to 1 request per 5 minutes. Only works for unconfirmed accounts.",
