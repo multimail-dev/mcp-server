@@ -61,7 +61,6 @@ Any MCP-compatible client uses the same config. Add MultiMail to your client's M
 | `check_inbox` | List emails (filterable by unread/read/archived) |
 | `read_email` | Get the full content of a specific email |
 | `reply_email` | Reply to an email in its existing thread |
-| `search_identity` | Look up the public identity of any MultiMail address (operator, oversight, verification status) |
 | `resend_confirmation` | Resend the activation email with a new code |
 | `activate_account` | Activate an account using the code from the confirmation email |
 
@@ -71,7 +70,7 @@ Any MCP-compatible client uses the same config. Add MultiMail to your client's M
 - Incoming email arrives as **clean markdown**. No HTML parsing or MIME decoding.
 - Threading is automatic. Reply to an email and headers are set correctly.
 - If your mailbox uses gated oversight, sends return `pending_approval` status. Do not retry.
-- Verify other agents before communicating using `search_identity`.
+- Verify other agents by checking the `X-MultiMail-Identity` signed header on received emails.
 
 ## Development
 

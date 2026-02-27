@@ -83,7 +83,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.1.10",
+  version: "0.1.12",
 });
 
 // Tool 1: list_mailboxes
@@ -171,7 +171,43 @@ server.tool(
   }
 );
 
-// Tool 6: resend_confirmation (search_identity removed — identity now delivered via signed X-MultiMail-Identity email header)
+// Tool 6: update_mailbox
+server.tool(
+  "update_mailbox",
+  "Update settings for a mailbox. All fields are optional — only include fields you want to change. signature_block is plain text (max 200 chars, no HTML) that appears in the email footer to identify the sender. Set signature_block to null to clear it.",
+  {
+    mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
+    display_name: z.string().optional().describe("Display name for outbound emails"),
+    oversight_mode: z.enum(["read_only", "autonomous", "monitored", "gated_send", "gated_all"]).optional().describe("Oversight mode for this mailbox"),
+    auto_cc: z.string().email().nullable().optional().describe("Auto-CC address for all outbound emails"),
+    auto_bcc: z.string().email().nullable().optional().describe("Auto-BCC address for all outbound emails"),
+    forward_inbound: z.boolean().optional().describe("Forward inbound emails to oversight email"),
+    webhook_url: z.string().url().nullable().optional().describe("Webhook URL for email events (must be HTTPS)"),
+    oversight_webhook_url: z.string().url().nullable().optional().describe("Webhook URL for oversight events (must be HTTPS)"),
+    signature_block: z.string().max(200).nullable().optional().describe("Plain text signature block for email footer (max 200 chars, no HTML)"),
+  },
+  async ({ mailbox_id, ...updates }) => {
+    const id = getMailboxId(mailbox_id);
+    const data = await apiCall("PATCH", `/v1/mailboxes/${encodeURIComponent(id)}`, updates);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 7: delete_mailbox
+server.tool(
+  "delete_mailbox",
+  "Permanently delete a mailbox. This deactivates the mailbox and all associated email data. The email address cannot be reused after deletion. Requires admin scope on the API key. This action cannot be undone.",
+  {
+    mailbox_id: z.string().describe("Mailbox ID to delete (use list_mailboxes to find it)"),
+  },
+  async ({ mailbox_id }) => {
+    const id = getMailboxId(mailbox_id);
+    const data = await apiCall("DELETE", `/v1/mailboxes/${encodeURIComponent(id)}`);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 8: resend_confirmation (search_identity removed — identity now delivered via signed X-MultiMail-Identity email header)
 server.tool(
   "resend_confirmation",
   "Resend the activation email with a new code. Use this if the account is stuck in 'pending_operator_confirmation' status because the original email was lost or filtered. The operator must enter the code at the activation page or via the activate_account tool to activate the account. Rate limited to 1 request per 5 minutes. Only works for unconfirmed accounts.",
@@ -182,7 +218,7 @@ server.tool(
   }
 );
 
-// Tool 8: activate_account
+// Tool 9: activate_account
 server.tool(
   "activate_account",
   "Activate a MultiMail account using the activation code from the confirmation email. The operator receives the code via email and can provide it to the agent. Accepts the code with or without dashes (e.g. 'SKP-7D2-4V8' or 'SKP7D24V8'). Rate limited to 5 attempts per hour.",
