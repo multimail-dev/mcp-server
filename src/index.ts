@@ -83,7 +83,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.1.12",
+  version: "0.1.13",
 });
 
 // Tool 1: list_mailboxes
@@ -193,7 +193,22 @@ server.tool(
   }
 );
 
-// Tool 7: delete_mailbox
+// Tool 7: update_account
+server.tool(
+  "update_account",
+  "Update account settings. Use this to change your organization name (appears in email footers when no signature block is set), oversight email address, or physical address for CAN-SPAM compliance. Requires admin scope.",
+  {
+    name: z.string().optional().describe("Organization/operator name"),
+    oversight_email: z.string().email().optional().describe("Email address for oversight notifications"),
+    physical_address: z.string().nullable().optional().describe("Physical mailing address (CAN-SPAM)"),
+  },
+  async (args) => {
+    const data = await apiCall("PATCH", "/v1/account", args);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 8: delete_mailbox
 server.tool(
   "delete_mailbox",
   "Permanently delete a mailbox. This deactivates the mailbox and all associated email data. The email address cannot be reused after deletion. Requires admin scope on the API key. This action cannot be undone.",
@@ -207,7 +222,7 @@ server.tool(
   }
 );
 
-// Tool 8: resend_confirmation (search_identity removed — identity now delivered via signed X-MultiMail-Identity email header)
+// Tool 9: resend_confirmation (search_identity removed — identity now delivered via signed X-MultiMail-Identity email header)
 server.tool(
   "resend_confirmation",
   "Resend the activation email with a new code. Use this if the account is stuck in 'pending_operator_confirmation' status because the original email was lost or filtered. The operator must enter the code at the activation page or via the activate_account tool to activate the account. Rate limited to 1 request per 5 minutes. Only works for unconfirmed accounts.",
@@ -218,7 +233,7 @@ server.tool(
   }
 );
 
-// Tool 9: activate_account
+// Tool 10: activate_account
 server.tool(
   "activate_account",
   "Activate a MultiMail account using the activation code from the confirmation email. The operator receives the code via email and can provide it to the agent. Accepts the code with or without dashes (e.g. 'SKP-7D2-4V8' or 'SKP7D24V8'). Rate limited to 5 attempts per hour.",
