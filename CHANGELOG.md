@@ -2,6 +2,12 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.2.1 — 2026-02-27
+
+### Changed
+- `send_email` and `reply_email` now return `pending_scan` status — emails are scanned for threats before delivery
+- Tool descriptions updated to mention `pending_scan` as a non-retryable status
+
 ## 0.2.0 — 2026-02-27
 
 ### Added

@@ -83,7 +83,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.2.0",
+  version: "0.2.1",
 });
 
 // Tool 1: list_mailboxes
@@ -100,7 +100,7 @@ server.tool(
 // Tool 2: send_email
 server.tool(
   "send_email",
-  "Send an email from your MultiMail address. The body is written in markdown and automatically converted to formatted HTML for delivery. If the mailbox is in read_only mode, this returns a 403 error with upgrade instructions — use request-upgrade to ask the operator for more autonomy. If the mailbox uses gated oversight, the response status will be 'pending_approval' — this means the email is queued for human review. Do not retry or resend when you see pending_approval.",
+  "Send an email from your MultiMail address. The body is written in markdown and automatically converted to formatted HTML for delivery. If the mailbox is in read_only mode, this returns a 403 error with upgrade instructions. If the mailbox uses gated oversight, the response status will be 'pending_approval' — this means the email is queued for human review. Do not retry or resend when you see pending_approval or pending_scan.",
   {
     to: z.array(z.string().email()).describe("Recipient email addresses"),
     subject: z.string().describe("Email subject line"),
@@ -173,7 +173,7 @@ server.tool(
 // Tool 5: reply_email
 server.tool(
   "reply_email",
-  "Reply to an email in its existing thread. Threading headers (In-Reply-To, References) are set automatically. The body is written in markdown. If the mailbox is in read_only mode, this returns a 403 error with upgrade instructions. If the mailbox uses gated oversight, the response status will be 'pending_approval' — the reply is queued for human review. Do not retry or resend when you see pending_approval.",
+  "Reply to an email in its existing thread. Threading headers (In-Reply-To, References) are set automatically. The body is written in markdown. If the mailbox uses gated oversight, the response status will be 'pending_approval' — the reply is queued for human review. Do not retry or resend when you see pending_approval or pending_scan.",
   {
     email_id: z.string().describe("The email ID to reply to"),
     markdown: z.string().describe("Reply body in markdown format"),
