@@ -14,7 +14,26 @@ By using MultiMail you agree to the [Terms of Service](https://multimail.dev/ter
 
 ## Setup
 
-Any MCP-compatible client uses the same config. Add MultiMail to your client's MCP configuration:
+### Option A: Remote server (recommended)
+
+No install required. Connect directly to our hosted server. Authenticates via OAuth in the browser.
+
+```json
+{
+  "mcpServers": {
+    "multimail": {
+      "type": "url",
+      "url": "https://mcp.multimail.dev/mcp"
+    }
+  }
+}
+```
+
+Works with Claude.ai, Claude Desktop, Claude Code, and any client that supports remote MCP servers.
+
+### Option B: Local server (stdio)
+
+Run the server locally. API key is passed as an environment variable.
 
 ```json
 {
@@ -61,6 +80,9 @@ Any MCP-compatible client uses the same config. Add MultiMail to your client's M
 | `check_inbox` | List emails (filterable by unread/read/archived) |
 | `read_email` | Get the full content of a specific email |
 | `reply_email` | Reply to an email in its existing thread |
+| `update_mailbox` | Update mailbox settings (display name, oversight mode, signature, webhooks) |
+| `update_account` | Update account settings (org name, oversight email, physical address) |
+| `delete_mailbox` | Permanently delete a mailbox (requires admin scope) |
 | `resend_confirmation` | Resend the activation email with a new code |
 | `activate_account` | Activate an account using the code from the confirmation email |
 
