@@ -6,12 +6,12 @@
     "url": "https://github.com/multimail-dev/mcp-server",
     "source": "github"
   },
-  "version": "0.1.12",
+  "version": "0.1.13",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@multimail/mcp-server",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "transport": {
         "type": "stdio"
       },
@@ -31,6 +31,18 @@
           "name": "MULTIMAIL_MAILBOX_ID"
         }
       ]
+    },
+    {
+      "registryType": "custom",
+      "identifier": "mcp.multimail.dev",
+      "version": "0.1.13",
+      "transport": {
+        "type": "streamablehttp",
+        "url": "https://mcp.multimail.dev/mcp",
+        "authorization": {
+          "type": "oauth2"
+        }
+      }
     }
   ]
 }
