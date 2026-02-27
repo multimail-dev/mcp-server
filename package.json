@@ -1,6 +1,6 @@
 {
   "name": "@multimail/mcp-server",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "MCP server for MultiMail — email for AI agents",
   "type": "module",
   "bin": {
