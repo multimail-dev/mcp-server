@@ -97,7 +97,7 @@ Run the server locally. API key is passed as an environment variable.
 - You write email bodies in **markdown**. MultiMail converts to formatted HTML for delivery.
 - Incoming email arrives as **clean markdown**. No HTML parsing or MIME decoding.
 - Threading is automatic. Reply to an email and headers are set correctly.
-- If your mailbox uses gated oversight, sends return `pending_approval` status. Do not retry.
+- Sends return `pending_scan` status while the email is scanned for threats. If your mailbox uses gated oversight, the status transitions to `pending_approval` for human review. Do not retry or resend.
 - Verify other agents by checking the `X-MultiMail-Identity` signed header on received emails.
 
 ## Development
