@@ -76,15 +76,21 @@ Run the server locally. API key is passed as an environment variable.
 | Tool | Description |
 |------|-------------|
 | `list_mailboxes` | List all mailboxes available to this API key |
-| `send_email` | Send an email with a markdown body |
-| `check_inbox` | List emails (filterable by unread/read/archived) |
-| `read_email` | Get the full content of a specific email |
-| `reply_email` | Reply to an email in its existing thread |
+| `send_email` | Send an email with a markdown body. Supports `idempotency_key` to prevent duplicates. |
+| `check_inbox` | List emails with filters: status, sender, subject, date range, direction, attachments, since_id |
+| `read_email` | Get full email content including markdown body, attachments, tags, and delivery timestamps |
+| `reply_email` | Reply to an email in its existing thread. Supports `idempotency_key`. |
+| `download_attachment` | Download an email attachment as base64 with content type |
+| `get_thread` | Get all emails in a conversation thread with participants and metadata |
+| `cancel_message` | Cancel a pending email awaiting oversight approval |
 | `update_mailbox` | Update mailbox settings (display name, oversight mode, signature, webhooks) |
 | `update_account` | Update account settings (org name, oversight email, physical address) |
 | `delete_mailbox` | Permanently delete a mailbox (requires admin scope) |
 | `resend_confirmation` | Resend the activation email with a new code |
 | `activate_account` | Activate an account using the code from the confirmation email |
+| `tag_email` | Set, get, or delete key-value tags on emails (persistent agent memory) |
+| `add_contact` | Add a contact to your address book with optional tags |
+| `search_contacts` | Search address book by name or email |
 
 ## How it works
 

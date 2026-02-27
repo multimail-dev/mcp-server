@@ -2,6 +2,27 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.2.0 — 2026-02-27
+
+### Added
+- `download_attachment` tool — download email attachments as base64 with content type
+- `get_thread` tool — retrieve full conversation thread with participants and metadata
+- `cancel_message` tool — cancel pending emails awaiting oversight approval
+- `tag_email` tool — set, get, or delete key-value tags on emails (agent persistent memory)
+- `add_contact` tool — add contacts to address book with optional tags
+- `search_contacts` tool — search address book by name or email
+- `check_inbox` now supports filtering: `sender`, `subject_contains`, `date_after`, `date_before`, `direction`, `has_attachments`, `since_id`, `limit`
+- `send_email` and `reply_email` now accept `idempotency_key` to prevent duplicate sends (24h TTL)
+- Reply endpoint now has SHA-256 dedup (60s window), matching send behavior
+- API responses now include `delivered_at`, `bounced_at`, `bounce_type`, `approved_at`, `approved_by`
+- Thread tracking: send generates thread_id, reply inherits it, inbound looks up parent
+- `cancelled` email status for cancelled pending messages
+- Email tags (key-value pairs) included in read_email response
+- Contacts API with search
+
+### Changed
+- Tool count: 10 → 15
+
 ## 0.1.13 — 2026-02-27
 
 ### Added
