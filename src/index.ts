@@ -48,8 +48,14 @@ async function apiCall(method: string, path: string, body?: unknown): Promise<un
       throw new Error(`API key lacks required scope for this operation. ${data.error || ""}`);
     }
     if (res.status === 429) {
-      const retryAfter = res.headers.get("retry-after") || "unknown";
-      throw new Error(`Rate limit exceeded. Retry after ${retryAfter} seconds.`);
+      const retryAfter = res.headers.get("retry-after");
+      if (data.warmup_stage) {
+        throw new Error(`Warmup limit: ${data.daily_sent}/${data.daily_limit} today (${data.warmup_stage}). ${data.hint || ""}`);
+      }
+      if (String(data.error).includes("quota")) {
+        throw new Error("Monthly email quota exceeded. Upgrade your plan for more sends.");
+      }
+      throw new Error(`Rate limit exceeded. Retry after ${retryAfter || "a few"} seconds.`);
     }
     throw new Error(`API error ${res.status}: ${data.error || JSON.stringify(data)}`);
   }
@@ -83,7 +89,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.2.1",
+  version: "0.3.0",
 });
 
 // Tool 1: list_mailboxes
@@ -100,21 +106,27 @@ server.tool(
 // Tool 2: send_email
 server.tool(
   "send_email",
-  "Send an email from your MultiMail address. The body is written in markdown and automatically converted to formatted HTML for delivery. If the mailbox is in read_only mode, this returns a 403 error with upgrade instructions. If the mailbox uses gated oversight, the response status will be 'pending_approval' — this means the email is queued for human review. Do not retry or resend when you see pending_approval or pending_scan.",
+  "Send an email from your MultiMail address. The body is written in markdown and automatically converted to formatted HTML for delivery. If the mailbox is in read_only mode, this returns a 403 with upgrade instructions. Returns HTTP 202 with {id, status, thread_id}. The initial status is always 'pending_scan' while the email undergoes threat scanning. For gated oversight mailboxes, it then moves to 'pending_send_approval' awaiting human review. Do not retry or resend when you see pending_scan or pending_send_approval — the email is queued and will be processed.",
   {
     to: z.array(z.string().email()).describe("Recipient email addresses"),
     subject: z.string().describe("Email subject line"),
     markdown: z.string().describe("Email body in markdown format"),
     cc: z.array(z.string().email()).optional().describe("CC email addresses"),
     bcc: z.array(z.string().email()).optional().describe("BCC email addresses"),
+    attachments: z.array(z.object({
+      name: z.string().describe("Filename"),
+      content_base64: z.string().describe("File content as base64"),
+      content_type: z.string().describe("MIME type, e.g. application/pdf"),
+    })).optional().describe("File attachments (base64-encoded)"),
     idempotency_key: z.string().optional().describe("Unique key to prevent duplicate sends. If the same key is used within 24 hours, the original email is returned instead of sending again."),
     mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
   },
-  async ({ to, subject, markdown, cc, bcc, idempotency_key, mailbox_id }) => {
+  async ({ to, subject, markdown, cc, bcc, attachments, idempotency_key, mailbox_id }) => {
     const id = getMailboxId(mailbox_id);
     const body: Record<string, unknown> = { to, subject, markdown };
     if (cc?.length) body.cc = cc;
     if (bcc?.length) body.bcc = bcc;
+    if (attachments?.length) body.attachments = attachments;
     if (idempotency_key) body.idempotency_key = idempotency_key;
     const data = await apiCall("POST", `/v1/mailboxes/${encodeURIComponent(id)}/send`, body);
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
@@ -126,7 +138,7 @@ server.tool(
   "check_inbox",
   "List emails in your inbox. Returns email summaries including id, from, to, subject, status, received_at, has_attachments, delivered_at, bounced_at, and bounce_type. Does NOT include the email body — call read_email with the email ID to get the full message content. Supports filtering by status, sender, subject, date range, direction, attachments, and incremental polling via since_id.",
   {
-    status: z.enum(["unread", "read", "archived"]).optional().describe("Filter by email status (default: all)"),
+    status: z.enum(["unread", "read", "archived", "deleted", "pending_send_approval", "pending_inbound_approval", "rejected", "cancelled", "send_failed"]).optional().describe("Filter by email status (default: all)"),
     sender: z.string().optional().describe("Filter by sender email address (partial match)"),
     subject_contains: z.string().optional().describe("Filter by subject text (partial match)"),
     date_after: z.string().optional().describe("Only emails received after this ISO datetime"),
@@ -135,9 +147,10 @@ server.tool(
     has_attachments: z.boolean().optional().describe("Filter to emails with/without attachments"),
     since_id: z.string().optional().describe("Only emails with ID greater than this value (for incremental polling)"),
     limit: z.number().int().min(1).max(100).optional().describe("Max results to return (default 20, max 100)"),
+    cursor: z.string().optional().describe("Pagination cursor from previous response to fetch next page"),
     mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
   },
-  async ({ status, sender, subject_contains, date_after, date_before, direction, has_attachments, since_id, limit, mailbox_id }) => {
+  async ({ status, sender, subject_contains, date_after, date_before, direction, has_attachments, since_id, limit, cursor, mailbox_id }) => {
     const id = getMailboxId(mailbox_id);
     const params = new URLSearchParams();
     if (status) params.set("status", status);
@@ -149,6 +162,7 @@ server.tool(
     if (has_attachments !== undefined) params.set("has_attachments", String(has_attachments));
     if (since_id) params.set("since_id", since_id);
     if (limit) params.set("limit", String(limit));
+    if (cursor) params.set("cursor", cursor);
     const query = params.toString() ? `?${params.toString()}` : "";
     const data = await apiCall("GET", `/v1/mailboxes/${encodeURIComponent(id)}/emails${query}`);
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
@@ -173,20 +187,26 @@ server.tool(
 // Tool 5: reply_email
 server.tool(
   "reply_email",
-  "Reply to an email in its existing thread. Threading headers (In-Reply-To, References) are set automatically. The body is written in markdown. If the mailbox uses gated oversight, the response status will be 'pending_approval' — the reply is queued for human review. Do not retry or resend when you see pending_approval or pending_scan.",
+  "Reply to an email in its existing thread. Threading headers (In-Reply-To, References) are set automatically. The body is written in markdown. Returns HTTP 202 with {id, status}. The initial status is 'pending_scan'. For gated mailboxes, it moves to 'pending_send_approval' for human review. Do not retry or resend when you see pending_scan or pending_send_approval.",
   {
     email_id: z.string().describe("The email ID to reply to"),
     markdown: z.string().describe("Reply body in markdown format"),
     cc: z.array(z.string().email()).optional().describe("CC email addresses"),
     bcc: z.array(z.string().email()).optional().describe("BCC email addresses"),
+    attachments: z.array(z.object({
+      name: z.string().describe("Filename"),
+      content_base64: z.string().describe("File content as base64"),
+      content_type: z.string().describe("MIME type, e.g. application/pdf"),
+    })).optional().describe("File attachments (base64-encoded)"),
     idempotency_key: z.string().optional().describe("Unique key to prevent duplicate replies. If the same key is used within 24 hours, the original reply is returned instead of sending again."),
     mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
   },
-  async ({ email_id, markdown, cc, bcc, idempotency_key, mailbox_id }) => {
+  async ({ email_id, markdown, cc, bcc, attachments, idempotency_key, mailbox_id }) => {
     const id = getMailboxId(mailbox_id);
     const body: Record<string, unknown> = { markdown };
     if (cc?.length) body.cc = cc;
     if (bcc?.length) body.bcc = bcc;
+    if (attachments?.length) body.attachments = attachments;
     if (idempotency_key) body.idempotency_key = idempotency_key;
     const data = await apiCall("POST", `/v1/mailboxes/${encodeURIComponent(id)}/reply/${encodeURIComponent(email_id)}`, body);
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
@@ -238,7 +258,7 @@ server.tool(
 // Tool 8: cancel_message
 server.tool(
   "cancel_message",
-  "Cancel a pending email that is awaiting oversight approval. Only works on emails with status 'pending_send_approval' or 'pending_inbound_approval'. Returns 409 if the email has already been sent or approved. Idempotent: cancelling an already-cancelled email returns 200.",
+  "Cancel a pending email. Works on emails with status 'pending_scan', 'pending_send_approval', or 'pending_inbound_approval'. Returns 409 if the email has already been sent or approved. Idempotent: cancelling an already-cancelled email returns 200.",
   {
     email_id: z.string().describe("The email ID to cancel"),
     mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
@@ -386,6 +406,218 @@ server.tool(
   async ({ query }) => {
     const q = query ? `?q=${encodeURIComponent(query)}` : "";
     const data = await apiCall("GET", `/v1/contacts${q}`);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 16: get_account
+server.tool(
+  "get_account",
+  "Get account status, plan, quota used/remaining, sending enabled, and enforcement tier. Use this for self-diagnosis when sends fail or to check remaining quota before a batch operation.",
+  {},
+  async () => {
+    const data = await apiCall("GET", "/v1/account");
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 17: create_mailbox
+server.tool(
+  "create_mailbox",
+  "Create a new mailbox. The address_local_part becomes <local>@<tenant>.multimail.dev. Requires admin scope. Returns the new mailbox ID and full address.",
+  {
+    address_local_part: z.string().describe("Local part of the email address (e.g. 'support' becomes support@tenant.multimail.dev)"),
+    display_name: z.string().optional().describe("Display name for outbound emails"),
+    oversight_mode: z.enum(["read_only", "autonomous", "monitored", "gated_send", "gated_all"]).optional().describe("Oversight mode (default: gated_send)"),
+  },
+  async ({ address_local_part, display_name, oversight_mode }) => {
+    const body: Record<string, unknown> = { address: address_local_part };
+    if (display_name) body.display_name = display_name;
+    if (oversight_mode) body.oversight_mode = oversight_mode;
+    const data = await apiCall("POST", "/v1/mailboxes", body);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 18: request_upgrade
+server.tool(
+  "request_upgrade",
+  "Request an oversight mode upgrade for a mailbox. This is the trust ladder entry point — sends a request to the human operator for approval. The operator receives an email with a one-time upgrade code. Requires admin scope.",
+  {
+    mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
+    target_mode: z.enum(["autonomous", "monitored", "gated_send", "gated_all"]).describe("The oversight mode to upgrade to"),
+  },
+  async ({ mailbox_id, target_mode }) => {
+    const id = getMailboxId(mailbox_id);
+    const data = await apiCall("POST", `/v1/mailboxes/${encodeURIComponent(id)}/request-upgrade`, { target_mode });
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 19: apply_upgrade
+server.tool(
+  "apply_upgrade",
+  "Apply an oversight mode upgrade using the code from the upgrade approval email. The operator provides this code after approving the upgrade request.",
+  {
+    mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
+    code: z.string().describe("The upgrade code from the approval email"),
+  },
+  async ({ mailbox_id, code }) => {
+    const id = getMailboxId(mailbox_id);
+    const data = await apiCall("POST", `/v1/mailboxes/${encodeURIComponent(id)}/upgrade`, { code });
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 20: get_usage
+server.tool(
+  "get_usage",
+  "Check quota and usage statistics for the current billing period. Returns emails sent, received, storage used, and plan limits.",
+  {
+    period: z.enum(["summary", "daily"]).optional().describe("'summary' for current period totals (default), 'daily' for day-by-day breakdown"),
+  },
+  async ({ period }) => {
+    const params = period ? `?period=${period}` : "";
+    const data = await apiCall("GET", `/v1/usage${params}`);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 21: list_pending
+server.tool(
+  "list_pending",
+  "List emails awaiting oversight decision (pending_send_approval or pending_inbound_approval). Requires oversight scope on the API key. Use this to review emails before approving or rejecting them with decide_email.",
+  {},
+  async () => {
+    const data = await apiCall("GET", "/v1/oversight/pending");
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 22: decide_email
+server.tool(
+  "decide_email",
+  "Approve or reject a pending email in the oversight queue. Approved outbound emails are sent immediately. Requires oversight scope on the API key.",
+  {
+    email_id: z.string().describe("The email ID to approve or reject"),
+    action: z.enum(["approve", "reject"]).describe("Whether to approve or reject the email"),
+    reason: z.string().optional().describe("Optional reason for the decision (logged in audit trail)"),
+  },
+  async ({ email_id, action, reason }) => {
+    const body: Record<string, unknown> = { email_id, action };
+    if (reason) body.reason = reason;
+    const data = await apiCall("POST", "/v1/oversight/decide", body);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 23: delete_contact
+server.tool(
+  "delete_contact",
+  "Delete a contact from your address book. Use search_contacts to find the contact ID first.",
+  {
+    contact_id: z.string().describe("The contact ID to delete"),
+  },
+  async ({ contact_id }) => {
+    const data = await apiCall("DELETE", `/v1/contacts/${encodeURIComponent(contact_id)}`);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 24: check_suppression
+server.tool(
+  "check_suppression",
+  "List suppressed email addresses. Emails to suppressed addresses will bounce. Check this before sending to verify a recipient is deliverable.",
+  {
+    limit: z.number().int().min(1).max(100).optional().describe("Max results to return (default 20)"),
+    cursor: z.string().optional().describe("Pagination cursor from previous response"),
+  },
+  async ({ limit, cursor }) => {
+    const params = new URLSearchParams();
+    if (limit) params.set("limit", String(limit));
+    if (cursor) params.set("cursor", cursor);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const data = await apiCall("GET", `/v1/suppression${query}`);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 25: remove_suppression
+server.tool(
+  "remove_suppression",
+  "Remove an email address from the suppression list, allowing future emails to be delivered to it. Use check_suppression to see which addresses are suppressed.",
+  {
+    email_address: z.string().email().describe("The suppressed email address to remove"),
+  },
+  async ({ email_address }) => {
+    const data = await apiCall("DELETE", `/v1/suppression/${encodeURIComponent(email_address)}`);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 26: list_api_keys
+server.tool(
+  "list_api_keys",
+  "List all API keys for this account. Returns key metadata (ID, name, scopes, created_at) but not the key values. Requires admin scope.",
+  {},
+  async () => {
+    const data = await apiCall("GET", "/v1/api-keys");
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 27: create_api_key
+server.tool(
+  "create_api_key",
+  "Create a new API key with specified scopes. The key value is only returned once — store it securely. Requires admin scope.",
+  {
+    name: z.string().describe("Human-readable name for this key"),
+    scopes: z.array(z.string()).describe("Permission scopes (e.g. ['read', 'send', 'admin', 'oversight'])"),
+  },
+  async ({ name, scopes }) => {
+    const data = await apiCall("POST", "/v1/api-keys", { name, scopes });
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 28: revoke_api_key
+server.tool(
+  "revoke_api_key",
+  "Revoke an API key, permanently disabling it. Use list_api_keys to find the key ID. Requires admin scope. This action cannot be undone.",
+  {
+    key_id: z.string().describe("The API key ID to revoke"),
+  },
+  async ({ key_id }) => {
+    const data = await apiCall("DELETE", `/v1/api-keys/${encodeURIComponent(key_id)}`);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 29: get_audit_log
+server.tool(
+  "get_audit_log",
+  "Get the audit log for this account. Returns a chronological list of actions (sends, oversight decisions, setting changes, key creation, etc.). Requires admin scope.",
+  {
+    limit: z.number().int().min(1).max(100).optional().describe("Max results to return (default 50)"),
+    cursor: z.string().optional().describe("Pagination cursor from previous response"),
+  },
+  async ({ limit, cursor }) => {
+    const params = new URLSearchParams();
+    if (limit) params.set("limit", String(limit));
+    if (cursor) params.set("cursor", cursor);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const data = await apiCall("GET", `/v1/audit-log${query}`);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 30: delete_account
+server.tool(
+  "delete_account",
+  "Permanently delete this account and ALL associated data (mailboxes, emails, API keys, usage, audit log). The slug is freed for re-registration. Requires admin scope. THIS ACTION CANNOT BE UNDONE.",
+  {},
+  async () => {
+    const data = await apiCall("DELETE", "/v1/account");
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
   }
 );

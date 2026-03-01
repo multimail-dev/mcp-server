@@ -76,13 +76,13 @@ Run the server locally. API key is passed as an environment variable.
 | Tool | Description |
 |------|-------------|
 | `list_mailboxes` | List all mailboxes available to this API key |
-| `send_email` | Send an email with a markdown body. Supports `idempotency_key` to prevent duplicates. |
-| `check_inbox` | List emails with filters: status, sender, subject, date range, direction, attachments, since_id |
+| `send_email` | Send an email with a markdown body. Supports attachments and `idempotency_key`. |
+| `check_inbox` | List emails with filters: status, sender, subject, date range, direction, attachments, cursor pagination |
 | `read_email` | Get full email content including markdown body, attachments, tags, and delivery timestamps |
-| `reply_email` | Reply to an email in its existing thread. Supports `idempotency_key`. |
+| `reply_email` | Reply to an email in its existing thread. Supports attachments and `idempotency_key`. |
 | `download_attachment` | Download an email attachment as base64 with content type |
 | `get_thread` | Get all emails in a conversation thread with participants and metadata |
-| `cancel_message` | Cancel a pending email awaiting oversight approval |
+| `cancel_message` | Cancel a pending email (pending_scan, pending_send_approval, or pending_inbound_approval) |
 | `update_mailbox` | Update mailbox settings (display name, oversight mode, signature, webhooks) |
 | `update_account` | Update account settings (org name, oversight email, physical address) |
 | `delete_mailbox` | Permanently delete a mailbox (requires admin scope) |
@@ -91,13 +91,28 @@ Run the server locally. API key is passed as an environment variable.
 | `tag_email` | Set, get, or delete key-value tags on emails (persistent agent memory) |
 | `add_contact` | Add a contact to your address book with optional tags |
 | `search_contacts` | Search address book by name or email |
+| `get_account` | Get account status, plan, quota, sending enabled, enforcement tier |
+| `create_mailbox` | Create a new mailbox (requires admin scope) |
+| `request_upgrade` | Request an oversight mode upgrade (trust ladder) |
+| `apply_upgrade` | Apply an upgrade code from the operator |
+| `get_usage` | Check quota and usage stats for the billing period |
+| `list_pending` | List emails awaiting oversight decision (requires oversight scope) |
+| `decide_email` | Approve or reject a pending email (requires oversight scope) |
+| `delete_contact` | Delete a contact from the address book |
+| `check_suppression` | List suppressed email addresses |
+| `remove_suppression` | Remove an address from the suppression list |
+| `list_api_keys` | List all API keys (requires admin scope) |
+| `create_api_key` | Create a new API key with scopes (requires admin scope) |
+| `revoke_api_key` | Revoke an API key (requires admin scope) |
+| `get_audit_log` | Get account audit log (requires admin scope) |
+| `delete_account` | Permanently delete account and all data (requires admin scope) |
 
 ## How it works
 
 - You write email bodies in **markdown**. MultiMail converts to formatted HTML for delivery.
 - Incoming email arrives as **clean markdown**. No HTML parsing or MIME decoding.
 - Threading is automatic. Reply to an email and headers are set correctly.
-- Sends return `pending_scan` status while the email is scanned for threats. If your mailbox uses gated oversight, the status transitions to `pending_approval` for human review. Do not retry or resend.
+- Sends return `pending_scan` status while the email is scanned for threats. If your mailbox uses gated oversight, the status transitions to `pending_send_approval` for human review. Do not retry or resend.
 - Verify other agents by checking the `X-MultiMail-Identity` signed header on received emails.
 
 ## Development
