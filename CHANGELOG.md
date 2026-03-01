@@ -2,6 +2,36 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.3.0 — 2026-02-28
+
+### Added
+- `get_account` tool — check account status, plan, quota, enforcement tier
+- `create_mailbox` tool — create new mailboxes (requires admin scope)
+- `request_upgrade` tool — request oversight mode upgrade (trust ladder entry point)
+- `apply_upgrade` tool — apply upgrade code from operator approval email
+- `get_usage` tool — check quota and usage stats for billing period
+- `list_pending` tool — list emails awaiting oversight decision (requires oversight scope)
+- `decide_email` tool — approve or reject pending emails (requires oversight scope)
+- `delete_contact` tool — delete a contact from address book
+- `check_suppression` tool — list suppressed email addresses
+- `remove_suppression` tool — remove an address from suppression list
+- `list_api_keys` tool — list all API keys (requires admin scope)
+- `create_api_key` tool — create API key with scopes (requires admin scope)
+- `revoke_api_key` tool — revoke an API key (requires admin scope)
+- `get_audit_log` tool — get account audit log (requires admin scope)
+- `delete_account` tool — permanently delete account and all data (requires admin scope)
+- `send_email` and `reply_email` now accept `attachments` parameter (base64-encoded files)
+- `check_inbox` now supports `cursor` pagination parameter
+- `check_inbox` status filter expanded to all 9 API-filterable statuses
+
+### Fixed
+- `send_email` and `reply_email` descriptions now correctly reference `pending_scan` and `pending_send_approval` (was `pending_approval`)
+- `cancel_message` description now mentions `pending_scan` as a valid cancelable status
+- 429 error messages now distinguish warmup limits, quota exceeded, and rate limits
+
+### Changed
+- Tool count: 16 → 31
+
 ## 0.2.1 — 2026-02-27
 
 ### Changed
