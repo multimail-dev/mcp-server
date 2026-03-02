@@ -89,7 +89,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.3.0",
+  version: "0.4.0",
 });
 
 // Tool 1: list_mailboxes
@@ -618,6 +618,95 @@ server.tool(
   {},
   async () => {
     const data = await apiCall("DELETE", "/v1/account");
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 31: wait_for_email
+server.tool(
+  "wait_for_email",
+  "Block until a new email arrives matching optional filters, or timeout. Internally polls the inbox using since_id ordering. Use this instead of repeatedly calling check_inbox — it's more efficient and returns as soon as mail arrives. Returns {found: true, emails: [...]} when email arrives, or {found: false, timeout: true, waited_seconds: N} on timeout.",
+  {
+    mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
+    timeout_seconds: z.number().int().min(5).max(120).optional().describe("How long to wait for an email (default 30, min 5, max 120)"),
+    filter: z.object({
+      sender: z.string().optional().describe("Filter by sender email address (partial match)"),
+      subject_contains: z.string().optional().describe("Filter by subject text (partial match)"),
+    }).optional().describe("Optional filters to match incoming emails"),
+  },
+  async ({ mailbox_id, timeout_seconds, filter }) => {
+    const id = getMailboxId(mailbox_id);
+    const timeout = timeout_seconds ?? 30;
+    const deadline = Date.now() + timeout * 1000;
+    const pollInterval = 3000;
+
+    // Snapshot current latest email ID (all statuses to get true latest)
+    const baseline = await apiCall("GET", `/v1/mailboxes/${encodeURIComponent(id)}/emails?limit=1`) as { emails?: { id: string }[] };
+    const sinceId = baseline.emails?.[0]?.id;
+
+    // Poll loop
+    while (Date.now() < deadline) {
+      const params = new URLSearchParams();
+      if (sinceId) params.set("since_id", sinceId);
+      params.set("status", "unread");
+      params.set("limit", "5");
+      if (filter?.sender) params.set("sender", filter.sender);
+      if (filter?.subject_contains) params.set("subject_contains", filter.subject_contains);
+      const query = params.toString() ? `?${params.toString()}` : "";
+
+      const result = await apiCall("GET", `/v1/mailboxes/${encodeURIComponent(id)}/emails${query}`) as { emails?: unknown[] };
+      if (result.emails && result.emails.length > 0) {
+        return { content: [{ type: "text" as const, text: JSON.stringify({ found: true, emails: result.emails }, null, 2) }] };
+      }
+
+      // Wait before next poll (but don't exceed deadline)
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      await new Promise(resolve => setTimeout(resolve, Math.min(pollInterval, remaining)));
+    }
+
+    const waited = Math.round((timeout * 1000 - (deadline - Date.now())) / 1000);
+    return { content: [{ type: "text" as const, text: JSON.stringify({ found: false, timeout: true, waited_seconds: waited }, null, 2) }] };
+  }
+);
+
+// Tool 32: create_webhook
+server.tool(
+  "create_webhook",
+  "Create a webhook subscription to receive real-time notifications for email events. Returns the subscription with a signing_secret for verifying webhook payloads. The URL must be HTTPS.",
+  {
+    url: z.string().url().describe("HTTPS URL to receive webhook events"),
+    events: z.array(z.string()).describe("Events to subscribe to: message.received, message.sent, message.delivered, message.bounced, message.complained, oversight.pending, oversight.approved, oversight.rejected"),
+    mailbox_id: z.string().optional().describe("Mailbox ID to scope the webhook to (omit for account-wide)"),
+  },
+  async ({ url, events, mailbox_id }) => {
+    const body: Record<string, unknown> = { url, events };
+    if (mailbox_id) body.mailbox_id = mailbox_id;
+    const data = await apiCall("POST", "/v1/webhooks", body);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 33: list_webhooks
+server.tool(
+  "list_webhooks",
+  "List all webhook subscriptions for this account. Returns each subscription's ID, URL, events, and status.",
+  {},
+  async () => {
+    const data = await apiCall("GET", "/v1/webhooks");
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool 34: delete_webhook
+server.tool(
+  "delete_webhook",
+  "Delete a webhook subscription. Use list_webhooks to find the subscription ID.",
+  {
+    webhook_id: z.string().describe("The webhook subscription ID to delete"),
+  },
+  async ({ webhook_id }) => {
+    const data = await apiCall("DELETE", `/v1/webhooks/${encodeURIComponent(webhook_id)}`);
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
   }
 );

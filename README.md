@@ -106,6 +106,10 @@ Run the server locally. API key is passed as an environment variable.
 | `revoke_api_key` | Revoke an API key (requires admin scope) |
 | `get_audit_log` | Get account audit log (requires admin scope) |
 | `delete_account` | Permanently delete account and all data (requires admin scope) |
+| `wait_for_email` | Block until a new email arrives matching filters, or timeout (max 120s) |
+| `create_webhook` | Create a webhook subscription for real-time email event notifications |
+| `list_webhooks` | List all webhook subscriptions for this account |
+| `delete_webhook` | Delete a webhook subscription |
 
 ## How it works
 

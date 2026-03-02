@@ -2,6 +2,17 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.4.0 — 2026-03-01
+
+### Added
+- `wait_for_email` tool — block until a new email arrives matching optional filters, or timeout. Polls internally using `since_id` every 3 seconds. Supports `timeout_seconds` (5–120, default 30) and optional `filter` with `sender` and `subject_contains`. Returns immediately when mail arrives.
+- `create_webhook` tool — create a webhook subscription for real-time email event notifications (message.received, message.sent, message.delivered, message.bounced, message.complained, oversight.pending, oversight.approved, oversight.rejected). Returns signing_secret for payload verification.
+- `list_webhooks` tool — list all webhook subscriptions for this account
+- `delete_webhook` tool — delete a webhook subscription by ID
+
+### Changed
+- Tool count: 31 → 35
+
 ## 0.3.0 — 2026-02-28
 
 ### Added
