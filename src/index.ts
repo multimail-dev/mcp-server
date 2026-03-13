@@ -89,7 +89,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.5.0",
+  version: "0.5.1",
 });
 
 // Tool 1: list_mailboxes
@@ -782,6 +782,40 @@ server.tool(
     body.mcp_configured = 1;
     const data = await apiCall("PATCH", `/v1/mailboxes/${encodeURIComponent(id)}/configure`, body);
     mailboxConfiguredCache[id] = true;
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool: schedule_email
+server.tool(
+  "schedule_email",
+  "Schedule an email for future delivery. Same as send_email but with a required delivery time. The email is scanned immediately, then held until the scheduled time. Returns {id, status, thread_id} where status is 'pending_scan' (transitions to 'scheduled' after scan). Use edit_scheduled_email to change the delivery time or content, or cancel_message to cancel.",
+  {
+    to: z.array(z.string().email()).describe("Recipient email addresses"),
+    subject: z.string().describe("Email subject line"),
+    markdown: z.string().describe("Email body in markdown format"),
+    send_at: z.string().describe("Delivery time in UTC (ISO 8601, must end with Z). Example: 2026-03-15T14:00:00Z"),
+    cc: z.array(z.string().email()).optional().describe("CC email addresses"),
+    bcc: z.array(z.string().email()).optional().describe("BCC email addresses"),
+    attachments: z.array(z.object({
+      name: z.string().describe("Filename"),
+      content_base64: z.string().describe("File content as base64"),
+      content_type: z.string().describe("MIME type, e.g. application/pdf"),
+    })).optional().describe("File attachments (base64-encoded)"),
+    gate_timing: z.enum(["gate_first", "schedule_first"]).optional()
+      .describe("Override mailbox default: gate_first approves before scheduling, schedule_first schedules then approves on delivery"),
+    idempotency_key: z.string().optional().describe("Unique key to prevent duplicate sends (24h TTL)"),
+    mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
+  },
+  async ({ to, subject, markdown, send_at, cc, bcc, attachments, gate_timing, idempotency_key, mailbox_id }) => {
+    const id = getMailboxId(mailbox_id);
+    const body: Record<string, unknown> = { to, subject, markdown, send_at };
+    if (cc?.length) body.cc = cc;
+    if (bcc?.length) body.bcc = bcc;
+    if (attachments?.length) body.attachments = attachments;
+    if (gate_timing) body.gate_timing = gate_timing;
+    if (idempotency_key) body.idempotency_key = idempotency_key;
+    const data = await apiCall("POST", `/v1/mailboxes/${encodeURIComponent(id)}/send`, body);
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
   }
 );

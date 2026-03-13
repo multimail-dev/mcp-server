@@ -2,18 +2,19 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
-## 0.5.0 — 2026-03-13
+## 0.5.1 — 2026-03-13
 
 ### Added
+- `schedule_email` tool — schedule an email for future delivery with a required `send_at` time. Edit or cancel before it sends.
 - `configure_mailbox` tool — set up mailbox preferences: oversight mode, display name, CC/BCC defaults, scheduling, signature. Soft-nudge on first use if mailbox is unconfigured.
 - `edit_scheduled_email` tool — edit a scheduled email's delivery time, recipients, subject, or body before it sends
-- `send_email` now accepts `send_at` (ISO 8601) for scheduled delivery and `gate_timing` (`gate_first` or `schedule_first`) for oversight ordering
+- `send_email` now also accepts optional `send_at` (ISO 8601) for scheduled delivery and `gate_timing` (`gate_first` or `schedule_first`) for oversight ordering
 - `check_inbox` status filter now includes `scheduled`
 - `cancel_message` now works on scheduled emails
 - First-run onboarding: soft nudge when mailbox is unconfigured (action still executes, `setup_required` flag is informational)
 
 ### Changed
-- Tool count: 35 → 37
+- Tool count: 35 → 38
 
 ## 0.4.0 — 2026-03-01
 

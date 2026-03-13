@@ -96,6 +96,7 @@ If you skip this step, MultiMail will remind you on your first tool call.
 | `download_attachment` | Download an email attachment as base64 with content type |
 | `get_thread` | Get all emails in a conversation thread with participants and metadata |
 | `cancel_message` | Cancel a pending or scheduled email |
+| `schedule_email` | Schedule an email for future delivery with a required `send_at` time. Edit or cancel before it sends. |
 | `edit_scheduled_email` | Edit a scheduled email's delivery time, recipients, subject, or body before it sends |
 | `update_mailbox` | Update mailbox settings (display name, oversight mode, signature, webhooks) |
 | `update_account` | Update account settings (org name, oversight email, physical address) |
