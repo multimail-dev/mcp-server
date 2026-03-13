@@ -71,18 +71,32 @@ Run the server locally. API key is passed as an environment variable.
 | `MULTIMAIL_MAILBOX_ID` | No | Default mailbox ID. If not set, pass `mailbox_id` to each tool or call `list_mailboxes` first. |
 | `MULTIMAIL_API_URL` | No | API base URL. Defaults to `https://api.multimail.dev`. |
 
+## First-run setup
+
+On first use, MultiMail will prompt you to configure your mailbox. You can also run this explicitly using the `configure_mailbox` tool:
+
+- **Oversight mode**: How much human approval is required (`gated_send`, `monitored`, `autonomous`, etc.)
+- **Display name**: Sender name shown in emails
+- **CC/BCC defaults**: Automatically copy addresses on all outbound emails
+- **Scheduling**: Enable/disable scheduled send and set default gate timing
+- **Signature**: Email signature block
+
+If you skip this step, MultiMail will remind you on your first tool call.
+
 ## Tools
 
 | Tool | Description |
 |------|-------------|
 | `list_mailboxes` | List all mailboxes available to this API key |
-| `send_email` | Send an email with a markdown body. Supports attachments and `idempotency_key`. |
+| `configure_mailbox` | Set up mailbox preferences: oversight mode, display name, CC/BCC, scheduling, signature |
+| `send_email` | Send an email with a markdown body. Supports attachments, `idempotency_key`, and `send_at` for scheduled delivery. |
 | `check_inbox` | List emails with filters: status, sender, subject, date range, direction, attachments, cursor pagination |
 | `read_email` | Get full email content including markdown body, attachments, tags, and delivery timestamps |
 | `reply_email` | Reply to an email in its existing thread. Supports attachments and `idempotency_key`. |
 | `download_attachment` | Download an email attachment as base64 with content type |
 | `get_thread` | Get all emails in a conversation thread with participants and metadata |
-| `cancel_message` | Cancel a pending email (pending_scan, pending_send_approval, or pending_inbound_approval) |
+| `cancel_message` | Cancel a pending or scheduled email |
+| `edit_scheduled_email` | Edit a scheduled email's delivery time, recipients, subject, or body before it sends |
 | `update_mailbox` | Update mailbox settings (display name, oversight mode, signature, webhooks) |
 | `update_account` | Update account settings (org name, oversight email, physical address) |
 | `delete_mailbox` | Permanently delete a mailbox (requires admin scope) |
