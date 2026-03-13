@@ -89,7 +89,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.4.0",
+  version: "0.5.0",
 });
 
 // Tool 1: list_mailboxes
@@ -119,17 +119,25 @@ server.tool(
       content_type: z.string().describe("MIME type, e.g. application/pdf"),
     })).optional().describe("File attachments (base64-encoded)"),
     idempotency_key: z.string().optional().describe("Unique key to prevent duplicate sends. If the same key is used within 24 hours, the original email is returned instead of sending again."),
+    send_at: z.string().optional().describe("Schedule delivery for this UTC time (ISO 8601, must end with Z). Example: 2026-03-15T14:00:00Z"),
+    gate_timing: z.enum(["gate_first", "schedule_first"]).optional()
+      .describe("Override mailbox default: gate_first approves before scheduling, schedule_first schedules then approves on delivery"),
     mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
   },
-  async ({ to, subject, markdown, cc, bcc, attachments, idempotency_key, mailbox_id }) => {
+  async ({ to, subject, markdown, cc, bcc, attachments, idempotency_key, send_at, gate_timing, mailbox_id }) => {
     const id = getMailboxId(mailbox_id);
     const body: Record<string, unknown> = { to, subject, markdown };
     if (cc?.length) body.cc = cc;
     if (bcc?.length) body.bcc = bcc;
     if (attachments?.length) body.attachments = attachments;
     if (idempotency_key) body.idempotency_key = idempotency_key;
+    if (send_at) body.send_at = send_at;
+    if (gate_timing) body.gate_timing = gate_timing;
     const data = await apiCall("POST", `/v1/mailboxes/${encodeURIComponent(id)}/send`, body);
-    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+    const content = [{ type: "text" as const, text: JSON.stringify(data, null, 2) }];
+    const setupNudge = await checkSetupRequired(id);
+    if (setupNudge) content.unshift({ type: "text" as const, text: JSON.stringify(setupNudge, null, 2) });
+    return { content };
   }
 );
 
@@ -138,7 +146,7 @@ server.tool(
   "check_inbox",
   "List emails in your inbox. Returns email summaries including id, from, to, subject, status, received_at, has_attachments, delivered_at, bounced_at, and bounce_type. Does NOT include the email body — call read_email with the email ID to get the full message content. Supports filtering by status, sender, subject, date range, direction, attachments, and incremental polling via since_id.",
   {
-    status: z.enum(["unread", "read", "archived", "deleted", "pending_send_approval", "pending_inbound_approval", "rejected", "cancelled", "send_failed"]).optional().describe("Filter by email status (default: all)"),
+    status: z.enum(["unread", "read", "archived", "deleted", "pending_send_approval", "pending_inbound_approval", "rejected", "cancelled", "send_failed", "scheduled"]).optional().describe("Filter by email status (default: all)"),
     sender: z.string().optional().describe("Filter by sender email address (partial match)"),
     subject_contains: z.string().optional().describe("Filter by subject text (partial match)"),
     date_after: z.string().optional().describe("Only emails received after this ISO datetime"),
@@ -165,7 +173,10 @@ server.tool(
     if (cursor) params.set("cursor", cursor);
     const query = params.toString() ? `?${params.toString()}` : "";
     const data = await apiCall("GET", `/v1/mailboxes/${encodeURIComponent(id)}/emails${query}`);
-    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+    const content = [{ type: "text" as const, text: JSON.stringify(data, null, 2) }];
+    const setupNudge = await checkSetupRequired(id);
+    if (setupNudge) content.unshift({ type: "text" as const, text: JSON.stringify(setupNudge, null, 2) });
+    return { content };
   }
 );
 
@@ -258,7 +269,7 @@ server.tool(
 // Tool 8: cancel_message
 server.tool(
   "cancel_message",
-  "Cancel a pending email. Works on emails with status 'pending_scan', 'pending_send_approval', or 'pending_inbound_approval'. Returns 409 if the email has already been sent or approved. Idempotent: cancelling an already-cancelled email returns 200.",
+  "Cancel a pending or scheduled email. Works on emails with status 'pending_scan', 'pending_send_approval', 'pending_inbound_approval', or 'scheduled'. Returns 409 if the email has already been sent or approved. Idempotent: cancelling an already-cancelled email returns 200.",
   {
     email_id: z.string().describe("The email ID to cancel"),
     mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
@@ -707,6 +718,98 @@ server.tool(
   },
   async ({ webhook_id }) => {
     const data = await apiCall("DELETE", `/v1/webhooks/${encodeURIComponent(webhook_id)}`);
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// --- First-run detection ---
+
+const mailboxConfiguredCache: Record<string, boolean> = {};
+
+async function checkSetupRequired(mailboxId: string): Promise<Record<string, unknown> | null> {
+  if (mailboxConfiguredCache[mailboxId]) return null;
+
+  try {
+    const data = await apiCall("GET", `/v1/mailboxes/${encodeURIComponent(mailboxId)}`) as Record<string, unknown>;
+    if (data.mcp_configured) {
+      mailboxConfiguredCache[mailboxId] = true;
+      return null;
+    }
+
+    return {
+      setup_required: true,
+      current_settings: {
+        oversight_mode: data.oversight_mode,
+        display_name: data.display_name,
+        auto_cc: data.auto_cc,
+        auto_bcc: data.auto_bcc,
+        default_gate_timing: data.default_gate_timing || "gate_first",
+        signature_block: data.signature_block,
+      },
+      setup_prompt: "This mailbox hasn't been configured yet. Please walk your user through the following settings before proceeding: oversight mode, display name, CC/BCC preferences, scheduling preferences, and signature. Call configure_mailbox when ready.",
+    };
+  } catch {
+    return null; // Don't block on setup check failure
+  }
+}
+
+// Tool: configure_mailbox
+server.tool(
+  "configure_mailbox",
+  "Configure your mailbox settings. Use this to set up oversight mode, display name, CC/BCC preferences, scheduling defaults, and signature. This is typically done once during initial setup. Can be re-run anytime to update preferences. Sets mcp_configured flag so the setup prompt stops appearing.",
+  {
+    oversight_mode: z.enum(["read_only", "gated_all", "gated_send", "monitored", "autonomous"]).optional()
+      .describe("How much human oversight is required for this mailbox"),
+    display_name: z.string().optional().describe("Sender display name shown in emails"),
+    auto_cc: z.string().email().optional().describe("Automatically CC this address on all outbound emails"),
+    auto_bcc: z.string().email().optional().describe("Automatically BCC this address on all outbound emails"),
+    signature_block: z.string().optional().describe("Email signature appended to all outbound emails"),
+    default_gate_timing: z.enum(["gate_first", "schedule_first"]).optional()
+      .describe("Default gate timing for scheduled emails: gate_first approves before scheduling, schedule_first schedules then approves when alarm fires"),
+    scheduling_enabled: z.boolean().optional().describe("Whether this mailbox can use scheduled send"),
+    mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
+  },
+  async (params) => {
+    const id = getMailboxId(params.mailbox_id);
+    const body: Record<string, unknown> = {};
+    if (params.oversight_mode) body.oversight_mode = params.oversight_mode;
+    if (params.display_name !== undefined) body.display_name = params.display_name;
+    if (params.auto_cc !== undefined) body.auto_cc = params.auto_cc;
+    if (params.auto_bcc !== undefined) body.auto_bcc = params.auto_bcc;
+    if (params.signature_block !== undefined) body.signature_block = params.signature_block;
+    if (params.default_gate_timing) body.default_gate_timing = params.default_gate_timing;
+    if (params.scheduling_enabled !== undefined) body.scheduling_enabled = params.scheduling_enabled ? 1 : 0;
+    body.mcp_configured = 1;
+    const data = await apiCall("PATCH", `/v1/mailboxes/${encodeURIComponent(id)}/configure`, body);
+    mailboxConfiguredCache[id] = true;
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool: edit_scheduled_email
+server.tool(
+  "edit_scheduled_email",
+  "Edit a scheduled email before it sends. Can update delivery time, recipients, subject, body, or attachments. Content changes trigger a re-scan before delivery. Only works on emails with status 'scheduled'.",
+  {
+    email_id: z.string().describe("The scheduled email ID to edit"),
+    send_at: z.string().optional().describe("New delivery time (ISO 8601 UTC, must end with Z)"),
+    to: z.array(z.string().email()).optional().describe("New recipient list"),
+    cc: z.array(z.string().email()).optional().describe("New CC list"),
+    bcc: z.array(z.string().email()).optional().describe("New BCC list"),
+    subject: z.string().optional().describe("New subject line"),
+    markdown: z.string().optional().describe("New email body in markdown"),
+    mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
+  },
+  async ({ email_id, send_at, to, cc, bcc, subject, markdown, mailbox_id }) => {
+    const id = getMailboxId(mailbox_id);
+    const body: Record<string, unknown> = {};
+    if (send_at) body.send_at = send_at;
+    if (to) body.to = to;
+    if (cc) body.cc = cc;
+    if (bcc) body.bcc = bcc;
+    if (subject) body.subject = subject;
+    if (markdown) body.markdown = markdown;
+    const data = await apiCall("PATCH", `/v1/mailboxes/${encodeURIComponent(id)}/emails/${encodeURIComponent(email_id)}/schedule`, body);
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
   }
 );
