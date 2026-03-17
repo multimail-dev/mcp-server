@@ -89,7 +89,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.5.1",
+  version: "0.5.2",
 });
 
 // Tool 1: list_mailboxes
@@ -227,7 +227,7 @@ server.tool(
 // Tool 6: download_attachment
 server.tool(
   "download_attachment",
-  "Download an email attachment. Returns the file content as base64-encoded data along with the content type. Use this to read inbound PDFs, images, documents, and other attachments.",
+  "Download an email attachment. For small files (<50KB), returns base64-encoded content inline. For larger files, returns a temporary download URL valid for 1 hour — give this URL to the user or fetch it directly.",
   {
     email_id: z.string().describe("The email ID that has the attachment"),
     filename: z.string().describe("The attachment filename (from read_email attachment list)"),
@@ -235,6 +235,34 @@ server.tool(
   },
   async ({ email_id, filename, mailbox_id }) => {
     const id = getMailboxId(mailbox_id);
+
+    // First, try to get a signed URL (works for any size)
+    const urlRes = await fetch(`${BASE_URL}/v1/mailboxes/${encodeURIComponent(id)}/emails/${encodeURIComponent(email_id)}/attachments/${encodeURIComponent(filename)}/url`, {
+      headers: { Authorization: `Bearer ${API_KEY}` },
+    });
+
+    if (urlRes.ok) {
+      const urlData = await urlRes.json() as { url: string; filename: string; size_bytes: number; content_type: string; expires_in: number };
+      // For small files, still return inline base64 for convenience
+      if (urlData.size_bytes <= 50_000) {
+        const res = await fetch(`${BASE_URL}/v1/mailboxes/${encodeURIComponent(id)}/emails/${encodeURIComponent(email_id)}/attachments/${encodeURIComponent(filename)}`, {
+          headers: { Authorization: `Bearer ${API_KEY}` },
+        });
+        if (res.ok) {
+          const buffer = await res.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({ filename, content_type: urlData.content_type, content_base64: base64, size_bytes: buffer.byteLength }, null, 2) }],
+          };
+        }
+      }
+      // Large file — return the download URL
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ filename, content_type: urlData.content_type, size_bytes: urlData.size_bytes, download_url: urlData.url, expires_in_seconds: urlData.expires_in, note: "File too large for inline transfer. Use the download_url to fetch the file directly (valid for 1 hour, no auth needed)." }, null, 2) }],
+      };
+    }
+
+    // Fallback: direct download with base64 (for older API versions without /url endpoint)
     const res = await fetch(`${BASE_URL}/v1/mailboxes/${encodeURIComponent(id)}/emails/${encodeURIComponent(email_id)}/attachments/${encodeURIComponent(filename)}`, {
       headers: { Authorization: `Bearer ${API_KEY}` },
     });
