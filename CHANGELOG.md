@@ -2,6 +2,19 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.5.2 — 2026-03-17
+
+### Added
+- `download_attachment` now returns presigned URLs for attachments >50KB (1-hour expiry). Small files still return inline base64.
+- Presigned URL API endpoint: `GET /v1/mailboxes/:id/emails/:emailId/attachments/:filename/url`
+
+### Fixed
+- Email parser now preserves original body in forwarded and replied messages
+- Strips `Fwd:` and `Re:` prefixes from inbound email subjects
+
+### Changed
+- Removed duplicate `wrangler` from sub-package devDependencies (shared via root)
+
 ## 0.5.1 — 2026-03-13
 
 ### Added
