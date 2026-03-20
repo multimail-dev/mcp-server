@@ -91,7 +91,7 @@ If you skip this step, MultiMail will remind you on your first tool call.
 | `configure_mailbox` | Set up mailbox preferences: oversight mode, display name, CC/BCC, scheduling, signature |
 | `send_email` | Send an email with a markdown body. Supports attachments, `idempotency_key`, and `send_at` for scheduled delivery. |
 | `check_inbox` | List emails with filters: status, sender, subject, date range, direction, attachments, cursor pagination |
-| `read_email` | Get full email content including markdown body, attachments, tags, and delivery timestamps |
+| `read_email` | Get full email content. Returns trusted metadata and untrusted body as separate content blocks. |
 | `reply_email` | Reply to an email in its existing thread. Supports attachments and `idempotency_key`. |
 | `download_attachment` | Download an email attachment as base64 with content type |
 | `get_thread` | Get all emails in a conversation thread with participants and metadata |
