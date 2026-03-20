@@ -2,6 +2,21 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.5.3 — 2026-03-20
+
+### Security
+- `read_email` now separates trusted metadata from untrusted email body into distinct content blocks, preventing prompt injection via email content
+- Tool descriptions for `read_email`, `reply_email`, and `send_email` include warnings that email bodies are untrusted external content
+- Webhook creation, API key creation, and mailbox creation now require operator approval via email code (prevents injected agents from creating exfiltration webhooks or escalating privileges)
+- Identity header serialization uses sorted-key canonical format (deterministic by construction)
+
+### Added
+- `GET /v1/proof-status` endpoint — returns Lean 4 proof verification timestamp from KV
+
+### Changed
+- `read_email` response now returns two content blocks: metadata (trusted) and body (untrusted with explicit framing)
+- New mailbox creation returns 202 with approval code flow instead of immediate 201
+
 ## 0.5.2 — 2026-03-17
 
 ### Added
