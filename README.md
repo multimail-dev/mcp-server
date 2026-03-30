@@ -2,6 +2,10 @@
 
 MCP server for [MultiMail](https://multimail.dev). Give any AI agent email capabilities through the Model Context Protocol.
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/multimail-dev-mcp-server).
+
 ## Quick start
 
 ```bash
