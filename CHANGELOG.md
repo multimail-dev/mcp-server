@@ -2,6 +2,19 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.5.4 — 2026-03-27
+
+### Added
+- `ai_disclosure` parameter on `create_mailbox`, `configure_mailbox`, and `update_mailbox` tools — enables EU AI Act Article 50 compliance by including `ai_generated` field in signed identity claims
+- `ai_disclosure` field returned in `list_mailboxes` responses
+- `X-AI-Generated: true` convenience header on outbound emails from AI-operated mailboxes
+- `tamper_evident_ai_generated` Lean 4 theorem proving AI disclosure field is tamper-evident
+
+### Changed
+- `X-MultiMail-Identity` signed claim now includes `ai_generated` boolean (first field in sorted canonical JSON)
+- Email body signature block includes "This email was sent by an AI agent." when `ai_disclosure` is enabled
+- System notification emails explicitly set `ai_generated: false`
+
 ## 0.5.3 — 2026-03-20
 
 ### Security

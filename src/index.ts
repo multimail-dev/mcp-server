@@ -89,7 +89,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.5.3",
+  version: "0.5.4",
 });
 
 // Tool 1: list_mailboxes
@@ -333,6 +333,7 @@ server.tool(
     webhook_url: z.string().url().nullable().optional().describe("Webhook URL for email events (must be HTTPS)"),
     oversight_webhook_url: z.string().url().nullable().optional().describe("Webhook URL for oversight events (must be HTTPS)"),
     signature_block: z.string().max(200).nullable().optional().describe("Plain text signature block for email footer (max 200 chars, no HTML)"),
+    ai_disclosure: z.boolean().optional().describe("Enable AI-generated email disclosure (default: true). When true, outbound emails include a signed ai_generated claim in the X-MultiMail-Identity header and an X-AI-Generated header for EU AI Act Article 50 compliance. Set to false only for mailboxes operated by humans."),
   },
   async ({ mailbox_id, ...updates }) => {
     const id = getMailboxId(mailbox_id);
@@ -478,11 +479,13 @@ server.tool(
     address_local_part: z.string().describe("Local part of the email address (e.g. 'support' becomes support@tenant.multimail.dev)"),
     display_name: z.string().optional().describe("Display name for outbound emails"),
     approval_code: z.string().optional().describe("Approval code from operator email. Omit on first call to request the code."),
+    ai_disclosure: z.boolean().optional().describe("Enable AI-generated email disclosure (default: true). Set to false only for mailboxes operated by humans."),
   },
-  async ({ address_local_part, display_name, approval_code }) => {
+  async ({ address_local_part, display_name, approval_code, ai_disclosure }) => {
     const body: Record<string, unknown> = { address_local: address_local_part };
     if (display_name) body.display_name = display_name;
     if (approval_code) body.approval_code = approval_code;
+    if (ai_disclosure !== undefined) body.ai_disclosure = ai_disclosure;
     const data = await apiCall("POST", "/v1/mailboxes", body);
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
   }
@@ -810,6 +813,7 @@ server.tool(
     default_gate_timing: z.enum(["gate_first", "schedule_first"]).optional()
       .describe("Default gate timing for scheduled emails: gate_first approves before scheduling, schedule_first schedules then approves when alarm fires"),
     scheduling_enabled: z.boolean().optional().describe("Whether this mailbox can use scheduled send"),
+    ai_disclosure: z.boolean().optional().describe("Enable AI-generated email disclosure (default: true). Set to false only for mailboxes operated by humans."),
     mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
   },
   async (params) => {
@@ -822,6 +826,7 @@ server.tool(
     if (params.signature_block !== undefined) body.signature_block = params.signature_block;
     if (params.default_gate_timing) body.default_gate_timing = params.default_gate_timing;
     if (params.scheduling_enabled !== undefined) body.scheduling_enabled = params.scheduling_enabled ? 1 : 0;
+    if (params.ai_disclosure !== undefined) body.ai_disclosure = params.ai_disclosure ? 1 : 0;
     body.mcp_configured = 1;
     const data = await apiCall("PATCH", `/v1/mailboxes/${encodeURIComponent(id)}/configure`, body);
     mailboxConfiguredCache[id] = true;
