@@ -1,7 +1,7 @@
 {
   "name": "@multimail/mcp-server",
-  "version": "0.5.3",
-  "description": "MCP server for MultiMail — email for AI agents",
+  "version": "0.5.5",
+  "description": "Give your agent its own email address with graduated human oversight — from full approval to autonomous sending.",
   "type": "module",
   "bin": {
     "multimail-mcp": "./dist/index.js"

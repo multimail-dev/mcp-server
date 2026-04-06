@@ -1,6 +1,6 @@
 # @multimail/mcp-server
 
-MCP server for [MultiMail](https://multimail.dev). Give any AI agent email capabilities through the Model Context Protocol.
+MCP server for [MultiMail](https://multimail.dev). Give your agent its own email address with graduated human oversight — from full approval to autonomous sending.
 
 ## Quick start
 
@@ -8,7 +8,7 @@ MCP server for [MultiMail](https://multimail.dev). Give any AI agent email capab
 npx @multimail/mcp-server
 ```
 
-Requires `MULTIMAIL_API_KEY` environment variable. Get one at [multimail.dev](https://multimail.dev).
+Set `MULTIMAIL_API_KEY` for full access, or run without it to create an account first. Get a key at [multimail.dev](https://multimail.dev).
 
 By using MultiMail you agree to the [Terms of Service](https://multimail.dev/terms) and [Acceptable Use Policy](https://multimail.dev/acceptable-use).
 
@@ -101,8 +101,10 @@ If you skip this step, MultiMail will remind you on your first tool call.
 | `update_mailbox` | Update mailbox settings (display name, oversight mode, signature, webhooks) |
 | `update_account` | Update account settings (org name, oversight email, physical address) |
 | `delete_mailbox` | Permanently delete a mailbox (requires admin scope) |
-| `resend_confirmation` | Resend the activation email with a new code |
-| `activate_account` | Activate an account using the code from the confirmation email |
+| `request_challenge` | Request an ALTCHA proof-of-work challenge for account creation (no API key required) |
+| `create_account` | Create a new account with a solved PoW challenge (no API key required) |
+| `resend_confirmation` | Resend the activation email with a new code (no API key required) |
+| `activate_account` | Activate an account using the code from the confirmation email (no API key required) |
 | `tag_email` | Set, get, or delete key-value tags on emails (persistent agent memory) |
 | `add_contact` | Add a contact to your address book with optional tags |
 | `search_contacts` | Search address book by name or email |
