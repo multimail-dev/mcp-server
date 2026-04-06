@@ -1,24 +1,24 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "dev.multimail/mcp-server",
-  "description": "Email for AI agents. Send and receive as markdown with human oversight.",
+  "description": "Give your agent its own email address with graduated human oversight — from full approval to autonomous sending.",
   "repository": {
     "url": "https://github.com/multimail-dev/mcp-server",
     "source": "github"
   },
-  "version": "0.5.3",
+  "version": "0.5.5",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@multimail/mcp-server",
-      "version": "0.5.3",
+      "version": "0.5.5",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
-          "description": "Your MultiMail API key (starts with mm_live_)",
-          "isRequired": true,
+          "description": "Your MultiMail API key (starts with mm_live_). Optional — run without it to create an account first.",
+          "isRequired": false,
           "format": "string",
           "isSecret": true,
           "name": "MULTIMAIL_API_KEY"
@@ -35,7 +35,7 @@
     {
       "registryType": "custom",
       "identifier": "mcp.multimail.dev",
-      "version": "0.5.3",
+      "version": "0.5.5",
       "transport": {
         "type": "streamablehttp",
         "url": "https://mcp.multimail.dev/mcp",

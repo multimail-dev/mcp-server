@@ -10,8 +10,7 @@ const DEFAULT_MAILBOX_ID = process.env.MULTIMAIL_MAILBOX_ID;
 const BASE_URL = (process.env.MULTIMAIL_API_URL || "https://api.multimail.dev").replace(/\/$/, "");
 
 if (!API_KEY) {
-  console.error("MULTIMAIL_API_KEY environment variable is required.");
-  process.exit(1);
+  console.error("Warning: MULTIMAIL_API_KEY not set. Only onboarding tools available (request_challenge, create_account, activate_account, resend_confirmation).");
 }
 
 // --- API Client ---
@@ -89,8 +88,124 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.5.3",
+  version: "0.5.5",
 });
+
+// --- Pre-auth tools (no API key needed) ---
+
+// Tool: request_challenge
+server.tool(
+  "request_challenge",
+  "Request a proof-of-work challenge for account creation. Returns an ALTCHA challenge object with fields: algorithm (always SHA-256), challenge (hex hash to match), maxnumber (search space ceiling), salt, and signature. You must solve this before calling create_account. The challenge expires in 5 minutes. To solve: find a number N (0 <= N <= maxnumber) where hex(SHA-256(salt + N)) equals the challenge value. Use the salt string exactly as returned (it may contain query parameters like ?expires=...&) — concatenate it with the decimal string of N, compute SHA-256, and compare the hex digest to challenge. Submit the winning N as pow_solution.number in create_account. Echo back algorithm, challenge, salt, and signature unchanged — do not recompute signature; it is verified server-side. If the challenge expires or is already used, request a new one. Optionally provide oversight_email to calibrate difficulty — consumer email domains may receive easier challenges.",
+  {
+    oversight_email: z.string().email().optional().describe("Oversight email address (optional, used to calibrate PoW difficulty)"),
+  },
+  async ({ oversight_email }) => {
+    const body: Record<string, unknown> = {};
+    if (oversight_email) body.oversight_email = oversight_email;
+    const res = await fetch(`${BASE_URL}/v1/account/challenge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await parseResponse(res);
+    if (!res.ok) {
+      throw new Error(`Challenge request failed: ${data.error || JSON.stringify(data)}`);
+    }
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool: create_account
+server.tool(
+  "create_account",
+  "Create a new MultiMail account. Requires a solved proof-of-work challenge from request_challenge — the agent must solve the challenge itself (see request_challenge description for algorithm). After calling this tool, the human operator receives a confirmation email with an activation code. Call activate_account with that code to complete signup and receive an API key. The response is always {status: \"confirmation_sent\"} for privacy — it does not confirm whether the account was actually created or the email already exists. If no activation code arrives within 10 minutes, the email may already have an account (try resend_confirmation or ask the human operator). Slug conflicts return an explicit 409 with suggestions. Other explicit errors (400/429) may come from email validation failures, disposable domain blocking, rate limits, or invalid/expired PoW challenges.",
+  {
+    operator_name: z.string().describe("Organization or operator name (max 200 characters)"),
+    oversight_email: z.string().email().describe("Email address for oversight notifications and account confirmation"),
+    accepted_tos: z.literal(true).describe("Must be true — acceptance of Terms of Service"),
+    accepted_operator_agreement: z.literal(true).describe("Must be true — acceptance of Operator Agreement"),
+    accepted_anti_spam_policy: z.literal(true).describe("Must be true — acceptance of Anti-Spam Policy"),
+    pow_solution: z.object({
+      algorithm: z.string().describe("Algorithm from the challenge (always SHA-256)"),
+      challenge: z.string().describe("Challenge hash from request_challenge"),
+      number: z.number().describe("The solved number N where SHA-256(salt + N) matches the challenge"),
+      salt: z.string().describe("Salt from the challenge (echo back unchanged)"),
+      signature: z.string().describe("Signature from the challenge (echo back unchanged)"),
+    }).describe("Solved proof-of-work challenge from request_challenge"),
+    slug: z.string().optional().describe("URL slug for the account (auto-generated from operator_name if omitted)"),
+    physical_address: z.string().optional().describe("Physical mailing address for CAN-SPAM compliance"),
+  },
+  async ({ operator_name, oversight_email, accepted_tos, accepted_operator_agreement, accepted_anti_spam_policy, pow_solution, slug, physical_address }) => {
+    const body: Record<string, unknown> = {
+      operator_name,
+      oversight_email,
+      accepted_tos,
+      accepted_operator_agreement,
+      accepted_anti_spam_policy,
+      email_use_type: "transactional",
+      pow_solution,
+    };
+    if (slug) body.slug = slug;
+    if (physical_address) body.physical_address = physical_address;
+    const res = await fetch(`${BASE_URL}/v1/account`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await parseResponse(res);
+    if (!res.ok) {
+      throw new Error(`Account creation failed: ${data.error || JSON.stringify(data)}`);
+    }
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool: activate_account
+server.tool(
+  "activate_account",
+  "Activate a MultiMail account using the activation code from the confirmation email. Accepts the code with or without dashes (e.g. 'SKP-7D2-4V8' or 'SKP7D24V8'). Rate limited to 5 attempts per hour.",
+  {
+    code: z.string().describe("The activation code from the confirmation email (e.g. SKP-7D2-4V8)"),
+  },
+  async ({ code }) => {
+    const res = await fetch(`${BASE_URL}/v1/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const data = await parseResponse(res);
+    if (!res.ok) {
+      throw new Error(`Activation failed: ${data.error || JSON.stringify(data)}`);
+    }
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// Tool: resend_confirmation
+server.tool(
+  "resend_confirmation",
+  "Resend the activation email with a new code. Requires the oversight email address, not an API key. Use this if the account is stuck in 'pending_operator_confirmation' status. Rate limited to 1 request per 5 minutes.",
+  {
+    oversight_email: z.string().describe("The oversight email address used during signup"),
+  },
+  async ({ oversight_email }) => {
+    const res = await fetch(`${BASE_URL}/v1/account/resend-confirmation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ oversight_email }),
+    });
+    const data = await parseResponse(res);
+    if (!res.ok) {
+      throw new Error(`Resend failed: ${data.error || JSON.stringify(data)}`);
+    }
+    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  }
+);
+
+// --- Authenticated tools (require MULTIMAIL_API_KEY) ---
+
+if (API_KEY) {
 
 // Tool 1: list_mailboxes
 server.tool(
@@ -333,6 +448,7 @@ server.tool(
     webhook_url: z.string().url().nullable().optional().describe("Webhook URL for email events (must be HTTPS)"),
     oversight_webhook_url: z.string().url().nullable().optional().describe("Webhook URL for oversight events (must be HTTPS)"),
     signature_block: z.string().max(200).nullable().optional().describe("Plain text signature block for email footer (max 200 chars, no HTML)"),
+    ai_disclosure: z.boolean().optional().describe("Enable AI-generated email disclosure (default: true). When true, outbound emails include a signed ai_generated claim in the X-MultiMail-Identity header and an X-AI-Generated header for EU AI Act Article 50 compliance. Set to false only for mailboxes operated by humans."),
   },
   async ({ mailbox_id, ...updates }) => {
     const id = getMailboxId(mailbox_id);
@@ -366,38 +482,6 @@ server.tool(
   async ({ mailbox_id }) => {
     const id = getMailboxId(mailbox_id);
     const data = await apiCall("DELETE", `/v1/mailboxes/${encodeURIComponent(id)}`);
-    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
-  }
-);
-
-// Tool 9: resend_confirmation (search_identity removed — identity now delivered via signed X-MultiMail-Identity email header)
-server.tool(
-  "resend_confirmation",
-  "Resend the activation email with a new code. Use this if the account is stuck in 'pending_operator_confirmation' status because the original email was lost or filtered. The operator must enter the code at the activation page or via the activate_account tool to activate the account. Rate limited to 1 request per 5 minutes. Only works for unconfirmed accounts.",
-  {},
-  async () => {
-    const data = await apiCall("POST", "/v1/account/resend-confirmation");
-    return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
-  }
-);
-
-// Tool 10: activate_account
-server.tool(
-  "activate_account",
-  "Activate a MultiMail account using the activation code from the confirmation email. The operator receives the code via email and can provide it to the agent. Accepts the code with or without dashes (e.g. 'SKP-7D2-4V8' or 'SKP7D24V8'). Rate limited to 5 attempts per hour.",
-  {
-    code: z.string().describe("The activation code from the confirmation email (e.g. SKP-7D2-4V8)"),
-  },
-  async ({ code }) => {
-    const res = await fetch(`${BASE_URL}/v1/confirm`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    });
-    const data = await parseResponse(res);
-    if (!res.ok) {
-      throw new Error(`Activation failed: ${data.error || JSON.stringify(data)}`);
-    }
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
   }
 );
@@ -478,11 +562,13 @@ server.tool(
     address_local_part: z.string().describe("Local part of the email address (e.g. 'support' becomes support@tenant.multimail.dev)"),
     display_name: z.string().optional().describe("Display name for outbound emails"),
     approval_code: z.string().optional().describe("Approval code from operator email. Omit on first call to request the code."),
+    ai_disclosure: z.boolean().optional().describe("Enable AI-generated email disclosure (default: true). Set to false only for mailboxes operated by humans."),
   },
-  async ({ address_local_part, display_name, approval_code }) => {
+  async ({ address_local_part, display_name, approval_code, ai_disclosure }) => {
     const body: Record<string, unknown> = { address_local: address_local_part };
     if (display_name) body.display_name = display_name;
     if (approval_code) body.approval_code = approval_code;
+    if (ai_disclosure !== undefined) body.ai_disclosure = ai_disclosure;
     const data = await apiCall("POST", "/v1/mailboxes", body);
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
   }
@@ -810,6 +896,7 @@ server.tool(
     default_gate_timing: z.enum(["gate_first", "schedule_first"]).optional()
       .describe("Default gate timing for scheduled emails: gate_first approves before scheduling, schedule_first schedules then approves when alarm fires"),
     scheduling_enabled: z.boolean().optional().describe("Whether this mailbox can use scheduled send"),
+    ai_disclosure: z.boolean().optional().describe("Enable AI-generated email disclosure (default: true). Set to false only for mailboxes operated by humans."),
     mailbox_id: z.string().optional().describe("Mailbox ID (uses MULTIMAIL_MAILBOX_ID env var if not provided)"),
   },
   async (params) => {
@@ -822,6 +909,7 @@ server.tool(
     if (params.signature_block !== undefined) body.signature_block = params.signature_block;
     if (params.default_gate_timing) body.default_gate_timing = params.default_gate_timing;
     if (params.scheduling_enabled !== undefined) body.scheduling_enabled = params.scheduling_enabled ? 1 : 0;
+    if (params.ai_disclosure !== undefined) body.ai_disclosure = params.ai_disclosure ? 1 : 0;
     body.mcp_configured = 1;
     const data = await apiCall("PATCH", `/v1/mailboxes/${encodeURIComponent(id)}/configure`, body);
     mailboxConfiguredCache[id] = true;
@@ -890,6 +978,8 @@ server.tool(
     return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
   }
 );
+
+} // end if (API_KEY)
 
 // --- Start ---
 

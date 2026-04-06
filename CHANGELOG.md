@@ -2,6 +2,32 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.5.5 — 2026-04-05
+
+### Added
+- `request_challenge` tool — request an ALTCHA proof-of-work challenge for account creation
+- `create_account` tool — create a MultiMail account with a solved PoW challenge
+- `/onboard` public MCP endpoint on remote worker — agents can sign up without OAuth
+- PoW enforcement on `POST /v1/account` — proof-of-work is now required for all signups
+
+### Changed
+- stdio MCP server starts without `MULTIMAIL_API_KEY` — registers 4 onboarding tools (request_challenge, create_account, activate_account, resend_confirmation)
+- `resend_confirmation` uses direct fetch instead of authenticated API call (works without API key)
+- MCP server description updated to reflect trust-ladder positioning
+
+## 0.5.4 — 2026-03-27
+
+### Added
+- `ai_disclosure` parameter on `create_mailbox`, `configure_mailbox`, and `update_mailbox` tools — enables EU AI Act Article 50 compliance by including `ai_generated` field in signed identity claims
+- `ai_disclosure` field returned in `list_mailboxes` responses
+- `X-AI-Generated: true` convenience header on outbound emails from AI-operated mailboxes
+- `tamper_evident_ai_generated` Lean 4 theorem proving AI disclosure field is tamper-evident
+
+### Changed
+- `X-MultiMail-Identity` signed claim now includes `ai_generated` boolean (first field in sorted canonical JSON)
+- Email body signature block includes "This email was sent by an AI agent." when `ai_disclosure` is enabled
+- System notification emails explicitly set `ai_generated: false`
+
 ## 0.5.3 — 2026-03-20
 
 ### Security
