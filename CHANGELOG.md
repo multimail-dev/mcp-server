@@ -2,6 +2,22 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.5.6 — 2026-04-08
+
+### Security
+
+- **Block `send` + `oversight` scope combinations** on API keys. Prevents the self-approval attack where a single key can both compose and approve emails, bypassing the `gated_send` oversight model. Applies to both `POST /v1/api-keys` creation and `PATCH /v1/api-keys/:id` scope updates. ([H4](https://github.com/H179922/MCP-Server/issues/10))
+- **Gate oversight scope escalation** behind operator approval. Adding the `oversight` scope to an existing key now requires the admin-action approval flow, closing the escalation path that bypassed the scope combination block.
+- **Remove `webhook_url` and `oversight_webhook_url` from `update_mailbox`**. Webhook URLs can only be set via `create_webhook` which requires operator approval. Prevents the silent event exfiltration path. ([C2](https://github.com/H179922/MCP-Server/issues/6))
+- **Timing-safe upgrade code verification** — replaced `===` string comparison with `crypto.subtle.timingSafeEqual` in `verifyUpgradeCode`. Eliminates the timing side channel on approval code checks.
+- **MCP tool descriptions** updated with prompt injection warnings on `update_mailbox`, `update_account`, `configure_mailbox`, `edit_scheduled_email`, and `get_thread`.
+
+### Related
+
+- Plan: `docs/plans/2026-04-08-001-fix-adversarial-audit-configuration-security-plan.md`
+- Audit issues: H179922/MCP-Server#4
+- Phases 3-4 (auto_bcc gating, oversight_email confirmation, recipient edit blocking) will follow in a subsequent release.
+
 ## 0.5.5 — 2026-04-05
 
 ### Added
