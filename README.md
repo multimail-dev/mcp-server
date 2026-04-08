@@ -119,7 +119,7 @@ If you skip this step, MultiMail will remind you on your first tool call.
 | `check_suppression` | List suppressed email addresses |
 | `remove_suppression` | Remove an address from the suppression list |
 | `list_api_keys` | List all API keys (requires admin scope) |
-| `create_api_key` | Create a new API key with scopes (requires admin scope) |
+| `create_api_key` | Create a new API key with scopes (requires admin scope + operator approval; `send`+`oversight` combinations rejected to prevent self-approval) |
 | `revoke_api_key` | Revoke an API key (requires admin scope) |
 | `get_audit_log` | Get account audit log (requires admin scope) |
 | `delete_account` | Permanently delete account and all data (requires admin scope) |
