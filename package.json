@@ -1,6 +1,6 @@
 {
   "name": "@multimail/mcp-server",
-  "version": "0.5.6",
+  "version": "0.6.0",
   "description": "Give your agent its own email address with graduated human oversight — from full approval to autonomous sending.",
   "type": "module",
   "bin": {
@@ -44,7 +44,7 @@
     "email": "dev@multimail.dev"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {

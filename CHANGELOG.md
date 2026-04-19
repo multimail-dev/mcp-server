@@ -2,6 +2,14 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.6.0 — 2026-04-19
+
+- Migrate to @modelcontextprotocol/sdk 1.29.0 (server.tool → server.registerTool, Zod v4 in the Cloudflare worker)
+- Migrate Cloudflare agents 0.5 → 0.11.4
+- Fix tool-count claim in setup_multimail (40 → 43)
+- Unify mailbox_id parameter description across stdio and worker
+- No tool API changes
+
 ## 0.5.6 — 2026-04-08
 
 ### Security

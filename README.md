@@ -12,6 +12,42 @@ Set `MULTIMAIL_API_KEY` for full access, or run without it to create an account 
 
 By using MultiMail you agree to the [Terms of Service](https://multimail.dev/terms) and [Acceptable Use Policy](https://multimail.dev/acceptable-use).
 
+## Getting Started
+
+Don't have an account yet? Two options:
+
+### Option A: Browser signup (recommended, 60 seconds)
+1. Go to [multimail.dev/pricing](https://multimail.dev/pricing)
+2. Click **Get started free** (or pick a paid plan)
+3. Choose what your agent will do and pick an oversight mode
+4. Check your email for the activation code
+5. Add the API key to your MCP config below
+
+### Option B: Remote MCP server (auto-signup via OAuth)
+Add this to your MCP client — signup happens in the browser when you first connect:
+```json
+{
+  "mcpServers": {
+    "multimail": {
+      "type": "url",
+      "url": "https://mcp.multimail.dev/mcp"
+    }
+  }
+}
+```
+
+## After signup: configure your mailbox
+
+On first use, MultiMail will prompt you to configure your mailbox. You can also run this explicitly using the `configure_mailbox` tool:
+
+- **Oversight mode**: How much human approval is required (`gated_send`, `monitored`, `autonomous`, etc.)
+- **Display name**: Sender name shown in emails
+- **CC/BCC defaults**: Automatically copy addresses on all outbound emails
+- **Scheduling**: Enable/disable scheduled send and set default gate timing
+- **Signature**: Email signature block
+
+If you skip this step, MultiMail will remind you on your first tool call.
+
 ## Setup
 
 ### Option A: Remote server (recommended)
@@ -67,21 +103,9 @@ Run the server locally. API key is passed as an environment variable.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `MULTIMAIL_API_KEY` | Yes | Your MultiMail API key (`mm_live_...`) |
+| `MULTIMAIL_API_KEY` | Required for full access. Run without it to see setup instructions — or use the remote server for automatic OAuth signup. | Your MultiMail API key (`mm_live_...`) |
 | `MULTIMAIL_MAILBOX_ID` | No | Default mailbox ID. If not set, pass `mailbox_id` to each tool or call `list_mailboxes` first. |
 | `MULTIMAIL_API_URL` | No | API base URL. Defaults to `https://api.multimail.dev`. |
-
-## First-run setup
-
-On first use, MultiMail will prompt you to configure your mailbox. You can also run this explicitly using the `configure_mailbox` tool:
-
-- **Oversight mode**: How much human approval is required (`gated_send`, `monitored`, `autonomous`, etc.)
-- **Display name**: Sender name shown in emails
-- **CC/BCC defaults**: Automatically copy addresses on all outbound emails
-- **Scheduling**: Enable/disable scheduled send and set default gate timing
-- **Signature**: Email signature block
-
-If you skip this step, MultiMail will remind you on your first tool call.
 
 ## Tools
 
