@@ -139,6 +139,9 @@ Run the server locally. API key is passed as an environment variable.
 | `get_usage` | Check quota and usage stats for the billing period |
 | `list_pending` | List emails awaiting oversight decision (requires oversight scope) |
 | `decide_email` | Approve or reject a pending email (requires oversight scope) |
+| `report_spam` | Mark an email as spam and move it to quarantine |
+| `not_spam` | Restore a spam email to unread and label it as not spam |
+| `list_spam` | List spam-flagged and quarantined emails |
 | `delete_contact` | Delete a contact from the address book |
 | `check_suppression` | List suppressed email addresses |
 | `remove_suppression` | Remove an address from the suppression list |

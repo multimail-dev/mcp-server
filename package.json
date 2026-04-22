@@ -1,6 +1,6 @@
 {
   "name": "@multimail/mcp-server",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Give your agent its own email address with graduated human oversight — from full approval to autonomous sending.",
   "type": "module",
   "bin": {
