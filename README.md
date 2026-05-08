@@ -155,6 +155,18 @@ Run the server locally. API key is passed as an environment variable.
 | `list_webhooks` | List all webhook subscriptions for this account |
 | `delete_webhook` | Delete a webhook subscription |
 
+## CLI alternative
+
+For terminal workflows, scripts, and CI/CD, the [MultiMail CLI](https://github.com/multimail-dev/multimail-cli) provides every API feature plus compound analytics commands that go beyond the MCP:
+
+```bash
+go install github.com/multimail-dev/multimail-cli/cmd/multimail-pp-cli@latest
+multimail-pp-cli configure --base-url https://api.multimail.dev --api-key mm_live_...
+multimail-pp-cli sync && multimail-pp-cli health
+```
+
+Compound commands (offline after sync): `health`, `stats`, `stale`, `trust status`, `oversight summary`, `quota forecast`.
+
 ## How it works
 
 - You write email bodies in **markdown**. MultiMail converts to formatted HTML for delivery.
