@@ -88,7 +88,7 @@ function getMailboxId(argsMailboxId?: string): string {
 
 const server = new McpServer({
   name: "multimail",
-  version: "0.7.0",
+  version: "0.7.1",
 });
 
 // --- No API key: single setup tool ---
