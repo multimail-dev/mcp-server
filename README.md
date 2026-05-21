@@ -107,7 +107,7 @@ Run the server locally. API key is passed as an environment variable.
 | `MULTIMAIL_MAILBOX_ID` | No | Default mailbox ID. If not set, pass `mailbox_id` to each tool or call `list_mailboxes` first. |
 | `MULTIMAIL_API_URL` | No | API base URL. Defaults to `https://api.multimail.dev`. |
 
-## Tools
+## Tools (44)
 
 | Tool | Description |
 |------|-------------|
@@ -120,7 +120,6 @@ Run the server locally. API key is passed as an environment variable.
 | `download_attachment` | Download an email attachment as base64 with content type |
 | `get_thread` | Get all emails in a conversation thread with participants and metadata |
 | `cancel_message` | Cancel a pending or scheduled email |
-| `schedule_email` | Schedule an email for future delivery with a required `send_at` time. Edit or cancel before it sends. |
 | `edit_scheduled_email` | Edit a scheduled email's delivery time, recipients, subject, or body before it sends |
 | `update_mailbox` | Update mailbox settings (display name, oversight mode, signature, webhooks) |
 | `update_account` | Update account settings (org name, oversight email, physical address) |
@@ -130,21 +129,16 @@ Run the server locally. API key is passed as an environment variable.
 | `resend_confirmation` | Resend the activation email with a new code (no API key required) |
 | `activate_account` | Activate an account using the code from the confirmation email (no API key required) |
 | `tag_email` | Set, get, or delete key-value tags on emails (persistent agent memory) |
-| `add_contact` | Add a contact to your address book with optional tags |
-| `search_contacts` | Search address book by name or email |
+| `manage_contacts` | Add, search, or delete contacts (action: add\|search\|delete) |
 | `get_account` | Get account status, plan, quota, sending enabled, enforcement tier |
 | `create_mailbox` | Create a new mailbox (requires admin scope) |
-| `request_upgrade` | Request an oversight mode upgrade (trust ladder) |
-| `apply_upgrade` | Apply an upgrade code from the operator |
+| `manage_upgrade` | Request or apply oversight mode upgrade (action: request\|apply) |
 | `get_usage` | Check quota and usage stats for the billing period |
 | `list_pending` | List emails awaiting oversight decision (requires oversight scope) |
 | `decide_email` | Approve or reject a pending email (requires oversight scope) |
-| `report_spam` | Mark an email as spam and move it to quarantine |
-| `not_spam` | Restore a spam email to unread and label it as not spam |
+| `manage_spam_status` | Report spam or clear spam status (action: report\|clear) |
 | `list_spam` | List spam-flagged and quarantined emails |
-| `delete_contact` | Delete a contact from the address book |
-| `check_suppression` | List suppressed email addresses |
-| `remove_suppression` | Remove an address from the suppression list |
+| `manage_suppression` | Check or remove suppressed recipients (action: check\|remove) |
 | `list_api_keys` | List all API keys (requires admin scope) |
 | `create_api_key` | Create a new API key with scopes (requires admin scope + operator approval; `send`+`oversight` combinations rejected to prevent self-approval) |
 | `revoke_api_key` | Revoke an API key (requires admin scope) |
@@ -152,20 +146,43 @@ Run the server locally. API key is passed as an environment variable.
 | `delete_account` | Permanently delete account and all data (requires admin scope) |
 | `wait_for_email` | Block until a new email arrives matching filters, or timeout (max 120s) |
 | `create_webhook` | Create a webhook subscription for real-time email event notifications |
-| `list_webhooks` | List all webhook subscriptions for this account |
-| `delete_webhook` | Delete a webhook subscription |
+| `manage_webhooks` | List or delete webhooks (action: list\|delete) |
+| `upgrade_plan` | Upgrade to a paid Stripe plan (Builder, Pro, Scale) |
+| `cancel_subscription` | Cancel paid Stripe subscription, revert to starter at period end |
+| `get_billing_portal` | Generate a Stripe customer-portal URL for self-service billing |
+| `manage_allowlist` | Add, list, or remove sending allowlist entries (action: add\|list\|remove) |
+| `get_allowlist_status` | Check if a recipient is on the allowlist |
+| `set_allowlist_mode` | Set allowlist enforcement mode (enforce\|monitor\|off) |
+| `report_issue` | Report a tool bug, site problem, or feature request |
+| `setup_multimail` | Onboarding tool on the public /onboard endpoint; no API key required |
 
-## CLI alternative
+## Example prompts
 
-For terminal workflows, scripts, and CI/CD, the [MultiMail CLI](https://github.com/multimail-dev/multimail-cli) provides every API feature plus compound analytics commands that go beyond the MCP:
+Copy-paste these directly into an MCP client after connecting MultiMail:
 
-```bash
-go install github.com/multimail-dev/multimail-cli/cmd/multimail-pp-cli@latest
-multimail-pp-cli configure --base-url https://api.multimail.dev --api-key mm_live_...
-multimail-pp-cli sync && multimail-pp-cli health
+### Send / reply
+
+```text
+Find the most recent inbound email from alice@example.com, summarize what she is asking for in 2 bullets, then draft a polite reply thanking her for the proposal and saying I will review it this week. Do not send anything until I approve the draft.
 ```
 
-Compound commands (offline after sync): `health`, `stats`, `stale`, `trust status`, `oversight summary`, `quota forecast`.
+Expected tool path: `list_mailboxes` -> `check_inbox` -> `read_email` -> `reply_email`
+
+### Inbox read
+
+```text
+Check my default mailbox and summarize the last 5 unread emails. For each one, give me the sender, subject, received time, and whether it needs action today.
+```
+
+Expected tool path: `list_mailboxes` -> `check_inbox` -> `read_email`
+
+### Oversight
+
+```text
+Review the pending approval queue for my mailbox. For each pending email, tell me who it goes to, the subject, the main risk factors, and whether it looks safe to approve or should be rejected for human follow-up.
+```
+
+Expected tool path: `list_mailboxes` -> `list_pending` -> `read_email` -> `decide_email`
 
 ## How it works
 

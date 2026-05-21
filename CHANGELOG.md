@@ -2,10 +2,42 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
-## Unreleased
+## 0.8.0 — 2026-05-20
 
-- Add spam review tools: `report_spam`, `not_spam`, and `list_spam`.
-- Update setup messaging from 43 to 46 email tools.
+### Breaking — Tool Consolidation (50 → 44 tools)
+
+Consolidates 12 single-purpose tools into 5 action-enum tools, drops `schedule_email`, and adds `report_issue`. Net reduction: 50 → 44 tools (~1,500 fewer tokens in context window).
+
+**Migration table:**
+
+| Old tool(s) | New tool | Action parameter |
+|---|---|---|
+| `add_contact`, `search_contacts`, `delete_contact` | `manage_contacts` | `add` \| `search` \| `delete` |
+| `check_suppression`, `remove_suppression` | `manage_suppression` | `check` \| `remove` |
+| `request_upgrade`, `apply_upgrade` | `manage_upgrade` | `request` \| `apply` |
+| `report_spam`, `not_spam` | `manage_spam_status` | `report` \| `clear` |
+| `list_webhooks`, `delete_webhook` | `manage_webhooks` | `list` \| `delete` |
+| `schedule_email` | *(removed — use `send_email` with `send_at`)* | — |
+
+### Added
+
+- `report_issue` tool — report tool bugs, site problems, or feature requests directly from MCP
+- `POST /v1/feedback` endpoint — durable feedback ingestion with D1 storage and Postmark notification
+- Prompt injection warnings on `send_email` (untrusted email bodies) and `manage_spam_status` clear action
+
+### Changed
+
+- All merged tools use action-enum pattern (same as existing `tag_email`)
+- Tool annotations use most-permissive classification across merged actions
+
+## 0.7.1 — 2026-05-19
+
+### Added
+
+- `manage_allowlist` tool — add, list, or remove per-mailbox sending allowlist entries
+- `get_allowlist_status` tool — check if a recipient is on the allowlist
+- `set_allowlist_mode` tool — set allowlist enforcement mode (enforce|monitor|off)
+- Allowlist bypass gating on `send_email` — blocked sends return actionable remediation
 
 ## 0.7.0 — 2026-04-21
 
