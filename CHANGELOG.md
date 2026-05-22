@@ -2,6 +2,14 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.8.1 — 2026-05-22
+
+### Security
+
+- Structural prompt-injection isolation for `list_pending` — email bodies are now extracted from the metadata JSON and wrapped in `--- BEGIN UNTRUSTED EMAIL BODY ---` / `--- END UNTRUSTED EMAIL BODY ---` markers (matching `read_email` pattern). Previously bodies were returned inline with trusted metadata.
+- Structural `--- UNTRUSTED FIELDS WARNING ---` block appended to `check_inbox`, `get_thread`, `list_pending`, `list_spam`, and `wait_for_email` responses, annotating subject lines and sender addresses as untrusted external content.
+- All isolation patterns applied to both stdio and remote MCP servers.
+
 ## 0.8.0 — 2026-05-20
 
 ### Breaking — Tool Consolidation (50 → 44 tools)
