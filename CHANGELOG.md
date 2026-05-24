@@ -2,6 +2,25 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.9.0 — 2026-05-23
+
+### Breaking — Read/Write Tool Separation (44 → 50 tools)
+
+Splits 4 tools that mixed safe (GET) and unsafe (POST/PUT/DELETE) HTTP methods into 10 single-method tools to satisfy Claude connector directory review criteria. Each tool now uses exactly one HTTP method.
+
+**Migration table:**
+
+| Old tool | New tools |
+|---|---|
+| `tag_email` | `get_tags` (GET), `set_tags` (PUT), `delete_tag` (DELETE) |
+| `manage_contacts` | `search_contacts` (GET), `add_contact` (POST), `delete_contact` (DELETE) |
+| `manage_suppression` | `list_suppression` (GET), `remove_suppression` (DELETE) |
+| `manage_webhooks` | `list_webhooks` (GET), `delete_webhook` (DELETE) |
+
+### Unchanged
+
+- `manage_upgrade` (POST+POST) and `manage_spam_status` (POST+POST) are not split — both actions use the same HTTP method class.
+
 ## 0.8.1 — 2026-05-22
 
 ### Security

@@ -2,3 +2,8 @@ node_modules/
 dist/
 .npmrc
 .mcpregistry_*
+
+# Package manager lockfiles (use bun)
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
