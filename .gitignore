@@ -2,6 +2,8 @@ node_modules/
 dist/
 .npmrc
 .mcpregistry_*
+.env
+.DS_Store
 
 # Package manager lockfiles (use bun)
 package-lock.json
