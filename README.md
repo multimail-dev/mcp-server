@@ -4,76 +4,6 @@ Your agent doesn't have email yet because nobody trusts it with email yet. Multi
 
 ## Quick start
 
-```bash
-npx @multimail/mcp-server
-```
-
-Set `MULTIMAIL_API_KEY` for full access, or run without it to create an account first. Get a key at [multimail.dev](https://multimail.dev).
-
-By using MultiMail you agree to the [Terms of Service](https://multimail.dev/terms) and [Acceptable Use Policy](https://multimail.dev/acceptable-use).
-
-## What you get
-
-### Trust ladder
-
-Every mailbox has an oversight mode. Start restrictive, graduate as the agent earns trust.
-
-| Mode | Behavior |
-|------|----------|
-| `read_only` | Agent reads email. All sends blocked. |
-| `gated_all` | Every action requires human approval. |
-| `gated_send` | Outbound held for approval. Inbound immediate. **(default)** |
-| `monitored` | Agent sends freely. Copies go to oversight address. |
-| `autonomous` | Full send/receive. No gates. |
-
-Agents request upgrades via the API. The operator approves with a one-time code. No code needed for downgrades. The agent can always restrict itself.
-
-The gated approval flow is [formally verified in Lean 4](https://multimail.dev/verified). We proved that no email reaches delivery without passing through operator approval, for every possible code path.
-
-### Per-recipient allowlist
-
-In `gated_send` mode, allowlisted recipients bypass the approval queue. Add exact addresses (`vendor@example.com`) or domain wildcards (`*@example.com`). Every addition requires operator email approval. The agent cannot self-approve allowlist changes.
-
-The practical middle ground: routine correspondence with known contacts goes immediately, new recipients still go through oversight. Three tools: `list_allowlist`, `add_allowlist_entry`, `remove_allowlist_entry`.
-
-### Cryptographic identity
-
-Every outbound email carries a signed `X-MultiMail-Identity` header (ECDSA P-256). The payload includes operator name, oversight mode, capabilities, and verification status. Recipients verify against the public key at `GET /.well-known/multimail-signing-key`.
-
-A separate `X-MultiMail-Reputation` header links to privacy-preserving reputation data: bounce rates, complaint rates, account age. No raw addresses exposed. Updated daily.
-
-Without verified identity, recipients cannot distinguish your agent from a spammer. With it, they can verify the operator, the oversight level, and the sending history before reading a word.
-
-### Agent self-registration (auth.md)
-
-Agents can register themselves without a browser. The protocol uses verified-email identity assertion, inspired by [WorkOS AuthKit](https://workos.com/docs/authkit) patterns:
-
-```
-POST /agent/auth → claim_token + OTP sent to operator email
-POST /agent/auth/claim/complete → API key + tenant_id + granted scopes
-```
-
-Discovery endpoints follow [RFC 9728](https://datatracker.ietf.org/doc/html/rfc9728):
-- `GET /.well-known/oauth-protected-resource` (resource metadata)
-- `GET /.well-known/oauth-authorization-server` (authorization metadata)
-- `GET /auth.md` (human/agent-readable registration guide)
-
-The `WWW-Authenticate` header on 401 responses points agents to these endpoints automatically. An agent that hits a 401 can follow the link, read the registration protocol, and onboard itself.
-
-### Content scanning
-
-Every outbound email is scanned before delivery. Emails enter `pending_scan` status, then transition to delivery or `pending_send_approval` (in gated modes). Inbound emails go through the same pipeline. Phishing, malware, and prompt injection patterns are flagged before reaching the agent's inbox.
-
-## Getting started
-
-### Option A: Browser signup (60 seconds)
-1. Go to [multimail.dev/pricing](https://multimail.dev/pricing)
-2. Pick a plan (free tier: 2 mailboxes, 200 emails/mo)
-3. Choose oversight mode and confirm via email
-4. Add the API key to your MCP config below
-
-### Option B: Remote MCP server (auto-signup via OAuth)
-Add this to your MCP client. Signup happens in the browser on first connect:
 ```json
 {
   "mcpServers": {
@@ -85,29 +15,11 @@ Add this to your MCP client. Signup happens in the browser on first connect:
 }
 ```
 
-### Option C: Agent self-registration (no browser)
-The agent registers programmatically via the [auth.md protocol](#agent-self-registration-authmd). No human in the loop except email verification.
+Remote server. No install. Authenticates via OAuth on first connect.
 
-## Setup
+Works with Claude.ai, Claude Desktop, Claude Code, Cursor, Windsurf, Copilot (VS Code), ChatGPT Desktop, and any MCP client that supports remote servers.
 
-### Remote server (recommended)
-
-No install. Hosted at `mcp.multimail.dev`. Authenticates via OAuth.
-
-```json
-{
-  "mcpServers": {
-    "multimail": {
-      "type": "url",
-      "url": "https://mcp.multimail.dev/mcp"
-    }
-  }
-}
-```
-
-Works with Claude.ai, Claude Desktop, Claude Code, Cursor, Windsurf, Copilot (VS Code), ChatGPT Desktop, and any MCP client.
-
-### Local server (stdio)
+### Alternative: local stdio server
 
 ```json
 {
@@ -124,7 +36,9 @@ Works with Claude.ai, Claude Desktop, Claude Code, Cursor, Windsurf, Copilot (VS
 }
 ```
 
-### Where to add this
+Get a key at [multimail.dev](https://multimail.dev). Or run without one to create an account interactively.
+
+### Config file locations
 
 | Client | Config file |
 |--------|------------|
@@ -136,25 +50,63 @@ Works with Claude.ai, Claude Desktop, Claude Code, Cursor, Windsurf, Copilot (VS
 | OpenCode | `mcp.json` in your project |
 | ChatGPT Desktop | Settings > MCP Servers |
 
-## After signup: configure your mailbox
+## Trust ladder
 
-On first use, MultiMail prompts you to configure via `configure_mailbox`:
+Every mailbox has an oversight mode. Start restrictive, graduate as the agent earns trust.
 
-- **Oversight mode**: How much human approval is required
-- **Display name**: Sender name shown in emails
-- **CC/BCC defaults**: Automatically copy addresses on all outbound
-- **Scheduling**: Enable/disable scheduled send and default gate timing
-- **Signature**: Email signature block
+| Mode | Behavior |
+|------|----------|
+| `read_only` | Agent reads email. All sends blocked. |
+| `gated_all` | Every action requires human approval. |
+| `gated_send` | Outbound held for approval. Inbound immediate. **(default)** |
+| `monitored` | Agent sends freely. Copies go to oversight address. |
+| `autonomous` | Full send/receive. No gates. |
 
-Skip this and MultiMail will remind you on your first tool call.
+Agents request upgrades via the API. The operator approves with a one-time code. Downgrades need no approval. The agent can always restrict itself.
 
-## Environment variables
+The gated approval flow is [formally verified in Lean 4](https://multimail.dev/verified). No email reaches delivery without passing through operator approval, for every possible code path.
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `MULTIMAIL_API_KEY` | For full access | Your API key (`mm_live_...`). Run without it for setup instructions, or use remote server for OAuth. |
-| `MULTIMAIL_MAILBOX_ID` | No | Default mailbox ID. If unset, pass `mailbox_id` per tool or call `list_mailboxes`. |
-| `MULTIMAIL_API_URL` | No | API base URL. Defaults to `https://api.multimail.dev`. |
+## Per-recipient allowlist
+
+In `gated_send` mode, allowlisted recipients bypass the approval queue. Add exact addresses (`vendor@example.com`) or domain wildcards (`*@example.com`). Every addition requires operator email approval. The agent cannot self-approve allowlist changes.
+
+The practical middle ground: routine correspondence with known contacts goes immediately, new recipients still require oversight.
+
+## Cryptographic identity
+
+Every outbound email carries a signed `X-MultiMail-Identity` header (ECDSA P-256). The payload includes operator name, oversight mode, capabilities, and verification status. Recipients verify against the public key at `GET /.well-known/multimail-signing-key`.
+
+A separate `X-MultiMail-Reputation` header links to privacy-preserving reputation data: bounce rates, complaint rates, account age. No raw addresses exposed.
+
+Without verified identity, recipients cannot distinguish your agent from a spammer. With it, they can verify the operator, the oversight level, and the sending history before reading a word.
+
+## Agent self-registration (auth.md)
+
+Agents can register themselves without a browser. The protocol uses verified-email identity assertion, following the [auth.md](https://github.com/anthropics/auth.md) convention inspired by [WorkOS AuthKit](https://workos.com/docs/authkit):
+
+```
+POST /agent/auth -> claim_token + OTP sent to operator email
+POST /agent/auth/claim/complete -> API key + tenant_id + granted scopes
+```
+
+Discovery follows [RFC 9728](https://datatracker.ietf.org/doc/html/rfc9728):
+- `GET /.well-known/oauth-protected-resource` (resource metadata)
+- `GET /.well-known/oauth-authorization-server` (authorization metadata with `agent_auth` extension)
+- `GET /auth.md` (human/agent-readable registration guide)
+
+The `WWW-Authenticate` header on 401 responses points agents to these endpoints automatically. An agent that hits a 401 can follow the link, read the registration protocol, and onboard itself.
+
+## Content scanning
+
+Every outbound email is scanned before delivery. Emails enter `pending_scan` status, then transition to delivery or `pending_send_approval` (in gated modes). Inbound emails go through the same pipeline. Phishing, malware, and prompt injection patterns are flagged before reaching the agent's inbox.
+
+## How it works
+
+- Email bodies are **markdown** in, formatted HTML out. Inbound HTML arrives as clean markdown (15x fewer tokens than raw MIME).
+- Threading is automatic. Reply to an email and headers are set correctly.
+- Sends return `pending_scan` while scanned. Gated mailboxes then transition to `pending_send_approval` for human review. Do not retry.
+- Every outbound email carries a cryptographically signed [`X-MultiMail-Identity`](https://multimail.dev/#identity) header.
+- Reputation data via `X-MultiMail-Reputation` header: bounce rates, complaint rates, account age. Privacy-preserving, updated daily.
 
 ## Tools (50)
 
@@ -171,7 +123,7 @@ Skip this and MultiMail will remind you on your first tool call.
 | `edit_scheduled_email` | Edit scheduled email before it sends. |
 | `wait_for_email` | Block until matching email arrives or timeout (max 120s). |
 | `get_tags` | Get all tags on an email. Persistent key-value agent memory across sessions. |
-| `set_tags` | Set tags on an email. Merges with existing tags — existing keys overwritten, new keys added. |
+| `set_tags` | Set tags on an email. Merges with existing tags. |
 | `delete_tag` | Delete a specific tag key from an email. |
 | **Oversight** | |
 | `list_pending` | Emails awaiting oversight decision (requires oversight scope). |
@@ -223,42 +175,37 @@ Skip this and MultiMail will remind you on your first tool call.
 
 ## Example prompts
 
-### Send / reply
-
 ```text
-Find the most recent email from alice@example.com, summarize what she's asking, then draft a reply saying I'll review this week. Don't send until I approve.
+Find the most recent email from alice@example.com, summarize what she's asking,
+then draft a reply saying I'll review this week. Don't send until I approve.
 ```
 
-### Inbox triage
-
 ```text
-Check my inbox and summarize the last 5 unread emails. For each: sender, subject, time, and whether it needs action today.
+Check my inbox and summarize the last 5 unread emails.
+For each: sender, subject, time, and whether it needs action today.
 ```
 
-### Oversight review
-
 ```text
-Review the pending approval queue. For each pending email: who it goes to, the subject, risk factors, and whether to approve or reject.
+Review the pending approval queue. For each pending email: who it goes to,
+the subject, risk factors, and whether to approve or reject.
 ```
-
-### Allowlist management
 
 ```text
 Show my current sending allowlist. Then add *@acme.com so emails to Acme skip approval.
 ```
 
-## How it works
+## Environment variables
 
-- Email bodies are **markdown** in, formatted HTML out. Inbound HTML arrives as clean markdown (15x fewer tokens than raw MIME).
-- Threading is automatic. Reply to an email and headers are set correctly.
-- Sends return `pending_scan` while scanned for threats. Gated mailboxes then transition to `pending_send_approval` for human review. Do not retry.
-- Every outbound email carries a cryptographically signed [`X-MultiMail-Identity`](https://multimail.dev/#identity) header. Verify against `GET /.well-known/multimail-signing-key`.
-- Reputation data via `X-MultiMail-Reputation` header: bounce rates, complaint rates, account age. Privacy-preserving, updated daily.
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `MULTIMAIL_API_KEY` | For stdio mode | Your API key (`mm_live_...`). Not needed for remote server (uses OAuth). |
+| `MULTIMAIL_MAILBOX_ID` | No | Default mailbox ID. If unset, pass `mailbox_id` per tool or call `list_mailboxes`. |
+| `MULTIMAIL_API_URL` | No | API base URL. Defaults to `https://api.multimail.dev`. |
 
 ## Also available
 
 - **REST API**: `https://api.multimail.dev` ([OpenAPI spec](https://api.multimail.dev/v1/openapi.json))
-- **CLI**: `npx -y @mvanhorn/printing-press install multimail` (every API endpoint as a shell command, plus offline analytics via local SQLite sync)
+- **CLI**: `npx -y @mvanhorn/printing-press install multimail` (every API endpoint as a shell command)
 - **SDKs**: [Python](https://github.com/multimail-dev/multimail-python), [Vercel AI SDK](https://github.com/multimail-dev/multimail-ai-sdk), [LangChain](https://github.com/multimail-dev/langchain-multimail), [LlamaIndex](https://github.com/multimail-dev/llamaindex-multimail), [CrewAI](https://github.com/multimail-dev/crewai-multimail), [AutoGen](https://github.com/multimail-dev/multimail-autogen)
 
 ## Development
@@ -270,12 +217,8 @@ npm run build # Compile TypeScript
 npm start     # Run compiled version
 ```
 
-## Testing
-
-```bash
-echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | MULTIMAIL_API_KEY=mm_live_... node dist/index.js
-```
-
 ## License
 
 MIT
+
+By using MultiMail you agree to the [Terms of Service](https://multimail.dev/terms) and [Acceptable Use Policy](https://multimail.dev/acceptable-use).
