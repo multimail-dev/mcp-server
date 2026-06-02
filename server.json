@@ -1,0 +1,48 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.multimail/mcp-server",
+  "description": "Give your agent its own email address with graduated human oversight — from full approval to autonomous sending.",
+  "repository": {
+    "url": "https://github.com/multimail-dev/mcp-server",
+    "source": "github"
+  },
+  "version": "0.9.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@multimail/mcp-server",
+      "version": "0.9.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Your MultiMail API key (starts with mm_live_). Optional — run without it to create an account first.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true,
+          "name": "MULTIMAIL_API_KEY"
+        },
+        {
+          "description": "Default mailbox ID. If not set, pass mailbox_id to each tool or call list_mailboxes first.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "MULTIMAIL_MAILBOX_ID"
+        }
+      ]
+    },
+    {
+      "registryType": "custom",
+      "identifier": "mcp.multimail.dev",
+      "version": "0.9.0",
+      "transport": {
+        "type": "streamablehttp",
+        "url": "https://mcp.multimail.dev/mcp",
+        "authorization": {
+          "type": "oauth2"
+        }
+      }
+    }
+  ]
+}
