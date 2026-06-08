@@ -80,6 +80,8 @@ A separate `X-MultiMail-Reputation` header links to privacy-preserving reputatio
 
 Without verified identity, recipients cannot distinguish your agent from a spammer. With it, they can verify the operator, the oversight level, and the sending history before reading a word.
 
+**Agent DID relay (optional).** If your agent has bound a `did:key` to its MultiMail account, pass an optional `ucan` parameter to `send_email` / `reply_email`. MultiMail relays your agent's self-signed UCAN verbatim in a separate `X-Agent-Identity` header (`did="…"; ucan="…"`) — it does **not** sign or vouch for it; recipient tooling verifies the delegation independently. Inert unless a DID is bound.
+
 ## Agent self-registration (auth.md)
 
 Agents can register themselves without a browser. The protocol uses verified-email identity assertion, following the [auth.md](https://github.com/anthropics/auth.md) convention inspired by [WorkOS AuthKit](https://workos.com/docs/authkit):
@@ -206,7 +208,7 @@ Show my current sending allowlist. Then add *@acme.com so emails to Acme skip ap
 
 - **REST API**: `https://api.multimail.dev` ([OpenAPI spec](https://api.multimail.dev/v1/openapi.json))
 - **CLI**: `npx -y @mvanhorn/printing-press install multimail` (every API endpoint as a shell command)
-- **SDKs**: [Python](https://github.com/multimail-dev/multimail-python), [Vercel AI SDK](https://github.com/multimail-dev/ai-sdk), [LangChain](https://github.com/multimail-dev/langchain-multimail), [LlamaIndex](https://github.com/multimail-dev/llamaindex-multimail), [CrewAI](https://github.com/multimail-dev/crewai-multimail), [AutoGen](https://github.com/multimail-dev/multimail-autogen)
+- **SDKs**: [Python](https://github.com/multimail-dev/multimail-python), [Vercel AI SDK](https://github.com/multimail-dev/multimail-ai-sdk), [LangChain](https://github.com/multimail-dev/langchain-multimail), [LlamaIndex](https://github.com/multimail-dev/llamaindex-multimail), [CrewAI](https://github.com/multimail-dev/crewai-multimail), [AutoGen](https://github.com/multimail-dev/multimail-autogen)
 
 ## Development
 
