@@ -2,11 +2,23 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.11.0 — 2026-06-07
+
+### Added — agent DID relay (M1 DID bridge)
+
+Optional `ucan` parameter on the `send_email` and `reply_email` tools. When supplied, MultiMail relays the agent's self-signed UCAN (base64url, up to 11008 chars) verbatim in a separate `X-Agent-Identity` email header alongside the agent's bound `did:key`. MultiMail signs nothing and vouches for nothing — recipient tooling verifies the delegation independently. Inert unless the sending account has a bound agent DID.
+
+## 0.10.0 — 2026-05-25
+
+### Changed — ungated signup tools
+
+The signup tools (`request_challenge` / `create_account` / `activate_account`) no longer require an API key, so an agent can create its own MultiMail account before it has credentials (#130).
+
 ## 0.9.0 — 2026-05-23
 
 ### Breaking — Read/Write Tool Separation (44 → 50 tools)
 
-Splits 4 tools that mixed safe (GET) and unsafe (POST/PUT/DELETE) HTTP methods into 10 single-method tools. Each tool now uses exactly one HTTP method.
+Splits 4 tools that mixed safe (GET) and unsafe (POST/PUT/DELETE) HTTP methods into 10 single-method tools to satisfy Claude connector directory review criteria. Each tool now uses exactly one HTTP method.
 
 **Migration table:**
 
@@ -49,7 +61,7 @@ Consolidates 12 single-purpose tools into 5 action-enum tools, drops `schedule_e
 ### Added
 
 - `report_issue` tool — report tool bugs, site problems, or feature requests directly from MCP
-- Feedback endpoint for durable issue ingestion
+- `POST /v1/feedback` endpoint — durable feedback ingestion with email notification
 - Prompt injection warnings on `send_email` (untrusted email bodies) and `manage_spam_status` clear action
 
 ### Changed
@@ -73,28 +85,33 @@ Consolidates 12 single-purpose tools into 5 action-enum tools, drops `schedule_e
 
 ## 0.6.0 — 2026-04-19
 
-- Migrate to @modelcontextprotocol/sdk 1.29.0
+- Migrate to @modelcontextprotocol/sdk 1.29.0 (server.tool → server.registerTool, Zod v4 in the remote server)
+- Upgrade remote MCP server runtime (0.5 → 0.11.4)
 - Fix tool-count claim in setup_multimail (40 → 43)
-- Unify mailbox_id parameter description across stdio and remote servers
+- Unify mailbox_id parameter description across stdio and worker
 - No tool API changes
 
 ## 0.5.6 — 2026-04-08
 
 ### Security
 
-- **Block `send` + `oversight` scope combinations** on API keys. Prevents the self-approval attack where a single key can both compose and approve emails, bypassing the `gated_send` oversight model.
-- **Gate oversight scope escalation** behind operator approval. Adding the `oversight` scope to an existing key now requires the admin-action approval flow.
-- **Remove `webhook_url` and `oversight_webhook_url` from `update_mailbox`**. Webhook URLs can only be set via `create_webhook` which requires operator approval.
-- **Timing-safe upgrade code verification** — replaced `===` string comparison with constant-time comparison. Eliminates the timing side channel on approval code checks.
+- **Block `send` + `oversight` scope combinations** on API keys. Prevents the self-approval attack where a single key can both compose and approve emails, bypassing the `gated_send` oversight model. Applies to both `POST /v1/api-keys` creation and `PATCH /v1/api-keys/:id` scope updates.
+- **Gate oversight scope escalation** behind operator approval. Adding the `oversight` scope to an existing key now requires the admin-action approval flow, closing the escalation path that bypassed the scope combination block.
+- **Remove `webhook_url` and `oversight_webhook_url` from `update_mailbox`**. Webhook URLs can only be set via `create_webhook` which requires operator approval. Prevents the silent event exfiltration path.
+- **Timing-safe upgrade code verification** — replaced `===` string comparison with `crypto.subtle.timingSafeEqual` in `verifyUpgradeCode`. Eliminates the timing side channel on approval code checks.
 - **MCP tool descriptions** updated with prompt injection warnings on `update_mailbox`, `update_account`, `configure_mailbox`, `edit_scheduled_email`, and `get_thread`.
+
+### Note
+
+- Phases 3-4 (auto_bcc gating, oversight_email confirmation, recipient edit blocking) will follow in a subsequent release.
 
 ## 0.5.5 — 2026-04-05
 
 ### Added
-- `request_challenge` tool — request a proof-of-work challenge for account creation
+- `request_challenge` tool — request an ALTCHA proof-of-work challenge for account creation
 - `create_account` tool — create a MultiMail account with a solved PoW challenge
-- Remote MCP endpoint — agents can sign up without OAuth
-- PoW enforcement on account creation — proof-of-work is now required for all signups
+- `/onboard` public MCP endpoint on remote worker — agents can sign up without OAuth
+- PoW enforcement on `POST /v1/account` — proof-of-work is now required for all signups
 
 ### Changed
 - stdio MCP server starts without `MULTIMAIL_API_KEY` — registers 4 onboarding tools (request_challenge, create_account, activate_account, resend_confirmation)
@@ -107,7 +124,7 @@ Consolidates 12 single-purpose tools into 5 action-enum tools, drops `schedule_e
 - `ai_disclosure` parameter on `create_mailbox`, `configure_mailbox`, and `update_mailbox` tools — enables EU AI Act Article 50 compliance by including `ai_generated` field in signed identity claims
 - `ai_disclosure` field returned in `list_mailboxes` responses
 - `X-AI-Generated: true` convenience header on outbound emails from AI-operated mailboxes
-- Tamper-evident AI disclosure field backed by formal verification
+- `tamper_evident_ai_generated` Lean 4 theorem proving AI disclosure field is tamper-evident
 
 ### Changed
 - `X-MultiMail-Identity` signed claim now includes `ai_generated` boolean (first field in sorted canonical JSON)
@@ -119,11 +136,11 @@ Consolidates 12 single-purpose tools into 5 action-enum tools, drops `schedule_e
 ### Security
 - `read_email` now separates trusted metadata from untrusted email body into distinct content blocks, preventing prompt injection via email content
 - Tool descriptions for `read_email`, `reply_email`, and `send_email` include warnings that email bodies are untrusted external content
-- Webhook creation, API key creation, and mailbox creation now require operator approval via email code
+- Webhook creation, API key creation, and mailbox creation now require operator approval via email code (prevents injected agents from creating exfiltration webhooks or escalating privileges)
 - Identity header serialization uses sorted-key canonical format (deterministic by construction)
 
 ### Added
-- Proof verification status endpoint
+- `GET /v1/proof-status` endpoint — returns Lean 4 proof verification timestamp
 
 ### Changed
 - `read_email` response now returns two content blocks: metadata (trusted) and body (untrusted with explicit framing)
@@ -138,6 +155,9 @@ Consolidates 12 single-purpose tools into 5 action-enum tools, drops `schedule_e
 ### Fixed
 - Email parser now preserves original body in forwarded and replied messages
 - Strips `Fwd:` and `Re:` prefixes from inbound email subjects
+
+### Changed
+- Deduplicated a build-time dev dependency (shared via root)
 
 ## 0.5.1 — 2026-03-13
 
@@ -156,7 +176,7 @@ Consolidates 12 single-purpose tools into 5 action-enum tools, drops `schedule_e
 ## 0.4.0 — 2026-03-01
 
 ### Added
-- `wait_for_email` tool — block until a new email arrives matching optional filters, or timeout. Polls internally every 3 seconds. Supports `timeout_seconds` (5–120, default 30) and optional `filter` with `sender` and `subject_contains`. Returns immediately when mail arrives.
+- `wait_for_email` tool — block until a new email arrives matching optional filters, or timeout. Polls internally using `since_id` every 3 seconds. Supports `timeout_seconds` (5–120, default 30) and optional `filter` with `sender` and `subject_contains`. Returns immediately when mail arrives.
 - `create_webhook` tool — create a webhook subscription for real-time email event notifications (message.received, message.sent, message.delivered, message.bounced, message.complained, oversight.pending, oversight.approved, oversight.rejected). Returns signing_secret for payload verification.
 - `list_webhooks` tool — list all webhook subscriptions for this account
 - `delete_webhook` tool — delete a webhook subscription by ID
