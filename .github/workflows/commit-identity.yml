@@ -1,0 +1,38 @@
+name: Commit identity
+
+# Fail-closed guard for the authorship-leak class: GitHub's squash- and
+# merge-commit flows rewrite the resulting commit's author/committer to the
+# MERGING ACCOUNT's identity (its @users.noreply.github.com address embeds the
+# personal login). This repo therefore allows rebase-merge only, and this check
+# asserts the invariant directly: every commit reachable from the pushed ref is
+# authored AND committed by the org identity (or GitHub's own web-flow
+# identity). Allowlist form — this workflow intentionally names no private
+# identities.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  commit-identity:
+    name: All commits org-authored
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Assert org identity on every commit
+        run: |
+          set -euo pipefail
+          ALLOW='^(MultiMail <dev@multimail\.dev>|GitHub <noreply@github\.com>)$'
+          viol=$(git log --format='%h%x09%an <%ae>%x09%cn <%ce>' \
+            | awk -F'\t' -v re="$ALLOW" '$2 !~ re || $3 !~ re') || true
+          if [ -n "$viol" ]; then
+            printf '%s\n' "$viol"
+            echo "::error::commit identity violation(s) above — see GHST-508/GHST-510"
+            exit 1
+          fi
+          echo "OK: all $(git rev-list --count HEAD) commits org-authored"
