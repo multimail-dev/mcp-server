@@ -2,6 +2,16 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
+## 0.12.0 — 2026-06-11
+
+### Added — DID onboarding via MCP
+
+New `request_did_challenge` tool: request an account-binding challenge for an Ed25519 `did:key` before signup. `create_account` now accepts optional `agent_did` + `did_challenge_id` + `did_signature` (all three together) to bind a verifiable agent identity to the account at activation.
+
+### Changed — operator-approval two-step flows
+
+`update_account` (for `oversight_email` changes) and `delete_account` now accept an optional `approval_code`. First call without it requests a code (`202 pending_approval`) emailed to the oversight address; resubmit the same call with the code to complete the action. Previously these flows could not be completed from MCP.
+
 ## 0.11.0 — 2026-06-07
 
 ### Added — agent DID relay (M1 DID bridge)
