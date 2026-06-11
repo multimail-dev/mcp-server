@@ -37,7 +37,7 @@
       "identifier": "mcp.multimail.dev",
       "version": "0.12.0",
       "transport": {
-        "type": "streamablehttp",
+        "type": "streamable-http",
         "url": "https://mcp.multimail.dev/mcp",
         "authorization": {
           "type": "oauth2"
