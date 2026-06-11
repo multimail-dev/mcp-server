@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "dev.multimail/mcp-server",
-  "description": "Give your agent its own email address with graduated human oversight — from full approval to autonomous sending.",
+  "description": "Give your agent its own email address with graduated human oversight, from approval to autonomy.",
   "repository": {
     "url": "https://github.com/multimail-dev/mcp-server",
     "source": "github"
