@@ -31,18 +31,12 @@
           "name": "MULTIMAIL_MAILBOX_ID"
         }
       ]
-    },
+    }
+  ],
+  "remotes": [
     {
-      "registryType": "custom",
-      "identifier": "mcp.multimail.dev",
-      "version": "0.12.0",
-      "transport": {
-        "type": "streamable-http",
-        "url": "https://mcp.multimail.dev/mcp",
-        "authorization": {
-          "type": "oauth2"
-        }
-      }
+      "type": "streamable-http",
+      "url": "https://mcp.multimail.dev/mcp"
     }
   ]
 }
