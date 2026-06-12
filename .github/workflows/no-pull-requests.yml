@@ -11,6 +11,10 @@ permissions:
 jobs:
   close:
     name: Close pull request
+    # Only redirect EXTERNAL contributors (fork PRs). Same-repo branches can only be
+    # pushed by the org, and the release flow REQUIRES a PR (main is branch-protected,
+    # rebase-merge only) — an unconditional close deadlocks releases (v0.13.0, GHST-631).
+    if: github.event.pull_request.head.repo.fork == true
     runs-on: ubuntu-latest
     steps:
       - name: Redirect contributor to issues
