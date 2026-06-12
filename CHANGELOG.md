@@ -2,15 +2,11 @@
 
 All notable changes to `@multimail/mcp-server` will be documented in this file.
 
-## 0.12.0 — 2026-06-11
+## 0.13.0 — 2026-06-11
 
-### Added — DID onboarding via MCP
+### Changed — AI disclosure is now gateway-enforced (EU AI Act Article 50, GHST-450)
 
-New `request_did_challenge` tool: request an account-binding challenge for an Ed25519 `did:key` before signup. `create_account` now accepts optional `agent_did` + `did_challenge_id` + `did_signature` (all three together) to bind a verifiable agent identity to the account at activation.
-
-### Changed — operator-approval two-step flows
-
-`update_account` (for `oversight_email` changes) and `delete_account` now accept an optional `approval_code`. First call without it requests a code (`202 pending_approval`) emailed to the oversight address; resubmit the same call with the code to complete the action. Previously these flows could not be completed from MCP.
+Removed the `ai_disclosure` parameter from `create_mailbox`, `update_mailbox`, and `configure_mailbox`. AI transparency marking — the signed `ai_generated` claim in `X-MultiMail-Identity`, the `X-AI-Generated: true` header, and the visible disclosure footer line — is injected at the send gateway on every agent-originated email and can no longer be disabled. API calls setting `ai_disclosure: false` are rejected with 400; `true` is accepted as a no-op. Templated system notifications (not AI-generated content) remain unmarked.
 
 ## 0.11.0 — 2026-06-07
 
